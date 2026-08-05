@@ -108,7 +108,6 @@ class HDrezkaProvider : MainAPI() {
         }
         val rating =
             document.selectFirst("table.b-post__info > tbody > tr:nth-child(1) span.bold")?.text()
-                .toRatingInt()
         val actors =
             document.select("table.b-post__info > tbody > tr:last-child span.item").mapNotNull {
                 Actor(
@@ -159,7 +158,7 @@ class HDrezkaProvider : MainAPI() {
                 this.year = year
                 this.plot = description
                 this.tags = tags
-                this.rating = rating
+                this.score = Score.from10(rating)
                 addActors(actors)
                 this.recommendations = recommendations
                 addTrailer(trailer)
@@ -185,7 +184,7 @@ class HDrezkaProvider : MainAPI() {
                 this.year = year
                 this.plot = description
                 this.tags = tags
-                this.rating = rating
+                this.score = Score.from10(rating)
                 addActors(actors)
                 this.recommendations = recommendations
                 addTrailer(trailer)
@@ -329,7 +328,7 @@ class HDrezkaProvider : MainAPI() {
                     }
                 }
             } else {
-                res.server?.apmap { server ->
+                res.server?.amap { server ->
                     app.post(
                         url = "$mainUrl/ajax/get_cdn_series/?t=${Date().time}",
                         data = mapOf(
