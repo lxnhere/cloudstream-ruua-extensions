@@ -98,10 +98,10 @@ class Anilibria : MainAPI() {
                 tryParseJson<List<Episodes>>("[$data]")?.mapNotNull { eps ->
                     val file = eps.file ?: return@mapNotNull null
                     val title = eps.title ?: return@mapNotNull null
-                    newEpisode(file, fix = false) {
+                    newEpisode(file, {
                         this.name = title
                         this.posterUrl = fixUrlNull(eps.poster)
-                    }
+                    }, fix = false)
                 }
             }
         return newAnimeLoadResponse(title, url, getType(type)) {

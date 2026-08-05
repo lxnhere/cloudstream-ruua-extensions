@@ -147,11 +147,11 @@ class HDrezkaProvider : MainAPI() {
                 data["server"] = server
                 data["action"] = "get_stream"
 
-                newEpisode(data.toJson(), fix = false) {
+                newEpisode(data.toJson(), {
                     this.name = name
                     this.season = season
                     this.episode = episode
-                }
+                }, fix = false)
             }
 
             newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes) {
