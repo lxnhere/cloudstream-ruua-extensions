@@ -141,12 +141,15 @@ class HDrezkaProvider : MainAPI() {
                 val episode = it.attr("data-episode_id").toIntOrNull()
                 val name = "Episode $episode"
 
-                data["season"] = "$season"
-                data["episode"] = "$episode"
-                data["server"] = server
-                data["action"] = "get_stream"
+                // Fresh map per episode — shared HashMap can leak the last season/ep into all items
+                val episodeData = HashMap<String, Any>(data).apply {
+                    this["season"] = "$season"
+                    this["episode"] = "$episode"
+                    this["server"] = server
+                    this["action"] = "get_stream"
+                }
 
-                newEpisode(data.toJson(), {
+                newEpisode(episodeData.toJson(), {
                     this.name = name
                     this.season = season
                     this.episode = episode
