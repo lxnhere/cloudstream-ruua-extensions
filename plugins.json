@@ -232,15 +232,16 @@
         "name": "FilmixProvider"
     },
     {
-        "iconUrl": "https://www.google.com/s2/favicons?domain=rezka.ag&sz=%size%",
-        "fileHash": "sha256-c0b83e145e6736327ba57603dde5f4b7ba5b1b413d449d1abde3dc32737b290b",
+        "iconUrl": "https://www.google.com/s2/favicons?domain=hdrezka.ag&sz=%size%",
+        "fileHash": "sha256-4aaf7bd3d78747eb9206d8f9df6f620ddb3e2dc0c3505efc6eec139071903795",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 30245,
+        "fileSize": 32494,
         "status": 1,
         "language": "ru",
         "authors": [
-            "Hexated"
+            "Hexated",
+            "lxnhere"
         ],
         "tvTypes": [
             "AsianDrama",
@@ -248,7 +249,7 @@
             "TvSeries",
             "Movie"
         ],
-        "version": 4,
+        "version": 5,
         "internalName": "HDrezkaProvider",
         "url": "https://raw.githubusercontent.com/lxnhere/cloudstream-ruua-extensions/builds/HDrezkaProvider.cs3",
         "name": "HDrezkaProvider"
