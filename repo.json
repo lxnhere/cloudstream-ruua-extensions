@@ -1,0 +1,8 @@
+{
+  "name": "CloudStream RUUA",
+  "description": "Curated RU/UA audio providers for CloudStream RUUA",
+  "manifestVersion": 1,
+  "pluginLists": [
+    "https://raw.githubusercontent.com/lxnhere/cloudstream-ruua-extensions/builds/plugins.json"
+  ]
+}
