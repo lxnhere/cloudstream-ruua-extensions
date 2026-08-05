@@ -7,8 +7,10 @@ import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.getQualityFromName
+import com.lagradost.cloudstream3.utils.newExtractorLink
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import java.util.*
@@ -145,12 +147,11 @@ class HDrezkaProvider : MainAPI() {
                 data["server"] = server
                 data["action"] = "get_stream"
 
-                Episode(
-                    data.toJson(),
-                    name,
-                    season,
-                    episode,
-                )
+                newEpisode(data.toJson(), fix = false) {
+                    this.name = name
+                    this.season = season
+                    this.episode = episode
+                }
             }
 
             newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes) {
@@ -223,7 +224,7 @@ class HDrezkaProvider : MainAPI() {
 
     }
 
-    private fun cleanCallback(
+    private suspend fun cleanCallback(
         source: String,
         url: String,
         quality: String,
@@ -231,17 +232,18 @@ class HDrezkaProvider : MainAPI() {
         sourceCallback: (ExtractorLink) -> Unit
     ) {
         sourceCallback.invoke(
-            ExtractorLink(
+            newExtractorLink(
                 source,
                 source,
                 url,
-                "$mainUrl/",
-                getQuality(quality),
-                isM3u8,
-                headers = mapOf(
+                if (isM3u8) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
+            ) {
+                this.referer = "$mainUrl/"
+                this.quality = getQuality(quality)
+                this.headers = mapOf(
                     "Origin" to mainUrl
                 )
-            )
+            }
         )
     }
 
@@ -264,37 +266,36 @@ class HDrezkaProvider : MainAPI() {
         }
     }
 
-    private fun invokeSources(
+    private suspend fun invokeSources(
         source: String,
         url: String,
         subtitle: String,
         subCallback: (SubtitleFile) -> Unit,
         sourceCallback: (ExtractorLink) -> Unit
     ) {
-        decryptStreamUrl(url).split(",").map { links ->
+        for (links in decryptStreamUrl(url).split(",")) {
             val quality =
                 Regex("\\[([0-9]{3,4}p\\s?\\w*?)]").find(links)?.groupValues?.getOrNull(1)
-                    ?.trim() ?: return@map null
-            links.replace("[$quality]", "").split(" or ")
-                .map {
-                    val link = it.trim()
-                    val type = if(link.contains(".m3u8")) "(Main)" else "(Backup)"
-                    cleanCallback(
-                        "$source $type",
-                        link,
-                        quality,
-                        link.contains(".m3u8"),
-                        sourceCallback,
-                    )
-                }
+                    ?.trim() ?: continue
+            for (raw in links.replace("[$quality]", "").split(" or ")) {
+                val link = raw.trim()
+                val type = if (link.contains(".m3u8")) "(Main)" else "(Backup)"
+                cleanCallback(
+                    "$source $type",
+                    link,
+                    quality,
+                    link.contains(".m3u8"),
+                    sourceCallback,
+                )
+            }
         }
 
-        subtitle.split(",").map { sub ->
+        for (sub in subtitle.split(",")) {
             val language =
-                Regex("\\[(.*)]").find(sub)?.groupValues?.getOrNull(1) ?: return@map null
+                Regex("\\[(.*)]").find(sub)?.groupValues?.getOrNull(1) ?: continue
             val link = sub.replace("[$language]", "").trim()
             subCallback.invoke(
-                SubtitleFile(
+                newSubtitleFile(
                     getLanguage(language),
                     link
                 )

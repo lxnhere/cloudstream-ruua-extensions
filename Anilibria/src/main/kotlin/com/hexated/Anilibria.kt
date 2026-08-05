@@ -6,7 +6,9 @@ import com.lagradost.cloudstream3.LoadResponse.Companion.addAniListId
 import com.lagradost.cloudstream3.LoadResponse.Companion.addMalId
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.getQualityFromName
+import com.lagradost.cloudstream3.utils.newExtractorLink
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 
@@ -94,11 +96,12 @@ class Anilibria : MainAPI() {
         val episodes = document.select("script").find { it.data().contains("var player =") }?.data()
             ?.substringAfter("file:[")?.substringBefore("],")?.let { data ->
                 tryParseJson<List<Episodes>>("[$data]")?.mapNotNull { eps ->
-                    Episode(
-                        eps.file ?: return@mapNotNull null,
-                        name = eps.title ?: return@mapNotNull null,
-                        posterUrl = fixUrlNull(eps.poster),
-                    )
+                    val file = eps.file ?: return@mapNotNull null
+                    val title = eps.title ?: return@mapNotNull null
+                    newEpisode(file, fix = false) {
+                        this.name = title
+                        this.posterUrl = fixUrlNull(eps.poster)
+                    }
                 }
             }
         return newAnimeLoadResponse(title, url, getType(type)) {
@@ -120,18 +123,20 @@ class Anilibria : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
 
-        data.split(",").map { it.trim() }.map { m3u ->
+        for (m3uRaw in data.split(",")) {
+            val m3u = m3uRaw.trim()
             val quality = Regex("\\[([0-9]+p)]").find(m3u)?.groupValues?.getOrNull(1)
             val link = m3u.removePrefix("[$quality]").trim()
             callback.invoke(
-                ExtractorLink(
+                newExtractorLink(
                     this.name,
                     this.name,
                     link,
-                    "$mainUrl/",
-                    getQualityFromName(quality),
-                    true
-                )
+                    ExtractorLinkType.M3U8
+                ) {
+                    this.referer = "$mainUrl/"
+                    this.quality = getQualityFromName(quality)
+                }
             )
         }
 
