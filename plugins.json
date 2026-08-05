@@ -208,6 +208,30 @@
         "name": "EneyidaProvider"
     },
     {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=filmix.gg&sz=%size%",
+        "fileHash": "sha256-389491d2e8e63108837e9e5b48cb7f6a3965fceb854622fe856f917234efc5fd",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
+        "fileSize": 34739,
+        "status": 1,
+        "language": "ru",
+        "authors": [
+            "lxnhere",
+            "resoul"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries",
+            "Anime",
+            "Cartoon"
+        ],
+        "version": 1,
+        "internalName": "FilmixProvider",
+        "description": "Filmix RU streams with per-studio voiceovers. Ported from open-source resoul/filmix (Swift).",
+        "url": "https://raw.githubusercontent.com/lxnhere/cloudstream-ruua-extensions/builds/FilmixProvider.cs3",
+        "name": "FilmixProvider"
+    },
+    {
         "iconUrl": "https://www.google.com/s2/favicons?domain=rezka.ag&sz=%size%",
         "fileHash": "sha256-c0b83e145e6736327ba57603dde5f4b7ba5b1b413d449d1abde3dc32737b290b",
         "apiVersion": 1,
