@@ -6,6 +6,9 @@ This repository is a **curated fork**, not a clean-room rewrite. We thank the or
 |--------|------|----------|
 | **CakesTwix** | Ukrainian (`uk`) streaming providers, Gradle layout, CI pattern | [CakesTwix/cloudstream-extensions-uk](https://github.com/CakesTwix/cloudstream-extensions-uk) |
 | **hexated** (seed) | Russian providers **HDrezka** and **Anilibria** | [hexated/cloudstream-extensions-hexated](https://github.com/hexated/cloudstream-extensions-hexated) |
+| **resoul/filmix** | Filmix player/search/stream decode reference (Swift → Kotlin port) | [resoul/filmix](https://github.com/resoul/filmix) |
+
+**Do not port from Lampa / online_mod / aio_online** — broken and out of policy for this repo.
 
 ## Excluded from CakesTwix upstream
 
