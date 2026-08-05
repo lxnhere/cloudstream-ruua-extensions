@@ -13,6 +13,9 @@ on:
     paths-ignore:
       - "*.md"
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,15 +24,29 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: src
+          fetch-depth: 0
 
-      - name: Checkout builds
-        uses: actions/checkout@v4
-        with:
-          ref: builds
-          path: builds
+      - name: Prepare builds worktree
+        run: |
+          cd $GITHUB_WORKSPACE/src
+          git fetch origin builds:builds || true
+          if git show-ref --verify --quiet refs/heads/builds || git show-ref --verify --quiet refs/remotes/origin/builds; then
+            git worktree add $GITHUB_WORKSPACE/builds builds 2>/dev/null || git worktree add $GITHUB_WORKSPACE/builds origin/builds
+          else
+            mkdir -p $GITHUB_WORKSPACE/builds
+            cd $GITHUB_WORKSPACE/builds
+            git init
+            git checkout -b builds
+            git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+            echo '[]' > plugins.json
+            git add plugins.json
+            git -c user.email="actions@github.com" -c user.name="GitHub Actions" commit -m "init builds"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Clean old builds
-        run: rm $GITHUB_WORKSPACE/builds/*.cs3 || true
+        run: rm -f $GITHUB_WORKSPACE/builds/*.cs3 || true
 
       - name: Setup JDK 17
         uses: actions/setup-java@v4
@@ -38,21 +55,27 @@ jobs:
           java-version: 17
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v2
+        uses: android-actions/setup-android@v3
 
       - name: Build plugins
         run: |
           cd $GITHUB_WORKSPACE/src
           chmod +x gradlew
-          ./gradlew make makePluginsJson
-          cp **/build/*.cs3 $GITHUB_WORKSPACE/builds
-          cp build/plugins.json $GITHUB_WORKSPACE/builds
+          ./gradlew make makePluginsJson --stacktrace
+          cp -f **/build/*.cs3 $GITHUB_WORKSPACE/builds/ || true
+          find . -name '*.cs3' -exec cp -f {} $GITHUB_WORKSPACE/builds/ \;
+          cp -f build/plugins.json $GITHUB_WORKSPACE/builds/
 
       - name: Push builds
         run: |
           cd $GITHUB_WORKSPACE/builds
           git config --local user.email "actions@github.com"
           git config --local user.name "GitHub Actions"
+          # ensure remote auth
+          git remote remove origin 2>/dev/null || true
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git add .
-          git commit --amend -m "Build $GITHUB_SHA" || exit 0
-          git push --force
+          git commit -m "Build ${GITHUB_SHA}" || exit 0
+          git push -u origin HEAD:builds --force
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
