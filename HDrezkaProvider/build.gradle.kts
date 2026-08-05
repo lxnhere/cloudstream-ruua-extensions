@@ -1,5 +1,5 @@
-// use an integer for version numbers
-version = 4
+// bump when mirror probe / link naming changes (self-updates via extensions CDN)
+version = 5
 
 
 cloudstream {
@@ -7,7 +7,7 @@ cloudstream {
     // All of these properties are optional, you can safely remove them
 
     // description = "Lorem Ipsum"
-     authors = listOf("Hexated")
+     authors = listOf("Hexated", "lxnhere")
 
     /**
      * Status int as the following:
@@ -24,5 +24,5 @@ cloudstream {
         "Movie",
     )
 
-    iconUrl = "https://www.google.com/s2/favicons?domain=rezka.ag&sz=%size%"
+    iconUrl = "https://www.google.com/s2/favicons?domain=hdrezka.ag&sz=%size%"
 }

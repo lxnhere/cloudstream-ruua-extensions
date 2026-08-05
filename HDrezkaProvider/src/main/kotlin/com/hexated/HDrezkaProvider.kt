@@ -15,8 +15,12 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import java.util.*
 
+/**
+ * HDrezka — tokenless scrape of public mirrors (n0madic/go-hdrezka defaults + extras).
+ * Picks the first reachable mirror at runtime and refreshes paths against it.
+ */
 class HDrezkaProvider : MainAPI() {
-    override var mainUrl = "https://rezka.ag"
+    override var mainUrl = "https://hdrezka.ag"
     override var name = "HDrezka"
     override val hasMainPage = true
     override var lang = "ru"
@@ -28,25 +32,80 @@ class HDrezkaProvider : MainAPI() {
         TvType.AsianDrama
     )
 
+    companion object {
+        /** Open-source defaults from n0madic/go-hdrezka + common public mirrors. */
+        private val MIRRORS = listOf(
+            "https://hdrezka.ag",
+            "https://rezka.ag",
+            "https://hdrzk.org",
+            "https://hdrezka.co",
+            "https://rezka-ua.in",
+        )
+    }
+
+    @Volatile
+    private var mirrorReady = false
+
+    private suspend fun ensureWorkingMirror() {
+        if (mirrorReady) return
+        for (mirror in MIRRORS) {
+            try {
+                val base = mirror.trimEnd('/')
+                val doc = app.get(base, timeout = 12_000).document
+                val ok = doc.selectFirst("div.b-content__inline_items, #search, form#search") != null
+                    || doc.select("div.b-content__inline_item").isNotEmpty()
+                    || doc.selectFirst("a[href*=/films/], a[href*=/series/]") != null
+                if (ok) {
+                    mainUrl = base
+                    mirrorReady = true
+                    return
+                }
+            } catch (_: Exception) {
+                // try next
+            }
+        }
+        // Keep constructor default if nothing answered
+        mirrorReady = true
+    }
+
+    private fun pageUrl(pathQuery: String): String {
+        val p = pathQuery.trim()
+        if (p.startsWith("http://") || p.startsWith("https://")) {
+            return try {
+                val u = java.net.URI(p)
+                val path = u.rawPath ?: "/"
+                val q = u.rawQuery?.let { "?$it" }.orEmpty()
+                "$mainUrl$path$q"
+            } catch (_: Exception) {
+                p.replace(Regex("""https?://[^/]+"""), mainUrl)
+            }
+        }
+        return mainUrl + if (p.startsWith("/")) p else "/$p"
+    }
+
+    // Paths only — host resolved via [ensureWorkingMirror]
     override val mainPage = mainPageOf(
-        "$mainUrl/films/?filter=last" to "фильмы — новинки",
-        "$mainUrl/films/?filter=watching" to "фильмы — смотрят",
-        "$mainUrl/films/?filter=popular" to "фильмы — популярные",
-        "$mainUrl/series/?filter=last" to "сериалы — новинки",
-        "$mainUrl/series/?filter=watching" to "сериалы — смотрят",
-        "$mainUrl/series/?filter=popular" to "сериалы — популярные",
-        "$mainUrl/cartoons/?filter=last" to "мультфильмы — новинки",
-        "$mainUrl/cartoons/?filter=watching" to "мультфильмы — смотрят",
-        "$mainUrl/animation/?filter=last" to "аниме — новинки",
-        "$mainUrl/animation/?filter=watching" to "аниме — смотрят",
+        "/films/?filter=last" to "фильмы — новинки",
+        "/films/?filter=watching" to "фильмы — смотрят",
+        "/films/?filter=popular" to "фильмы — популярные",
+        "/series/?filter=last" to "сериалы — новинки",
+        "/series/?filter=watching" to "сериалы — смотрят",
+        "/series/?filter=popular" to "сериалы — популярные",
+        "/cartoons/?filter=last" to "мультфильмы — новинки",
+        "/cartoons/?filter=watching" to "мультфильмы — смотрят",
+        "/animation/?filter=last" to "аниме — новинки",
+        "/animation/?filter=watching" to "аниме — смотрят",
     )
 
     override suspend fun getMainPage(
         page: Int,
         request: MainPageRequest
     ): HomePageResponse {
-        val url = request.data.split("?")
-        val home = app.get("${url.first()}page/$page/?${url.last()}").document.select(
+        ensureWorkingMirror()
+        val parts = request.data.split("?", limit = 2)
+        val path = parts.first()
+        val query = parts.getOrNull(1)?.let { "?$it" }.orEmpty()
+        val home = app.get(pageUrl("${path}page/$page/$query")).document.select(
             "div.b-content__inline_items div.b-content__inline_item"
         ).map {
             it.toSearchResult()
@@ -82,6 +141,7 @@ class HDrezkaProvider : MainAPI() {
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
+        ensureWorkingMirror()
         val link = "$mainUrl/search/?do=search&subaction=search&q=$query"
         val document = app.get(link).document
 
@@ -91,9 +151,11 @@ class HDrezkaProvider : MainAPI() {
     }
 
     override suspend fun load(url: String): LoadResponse {
-        val document = app.get(url).document
+        ensureWorkingMirror()
+        val resolved = pageUrl(url)
+        val document = app.get(resolved).document
 
-        val id = url.split("/").last().split("-").first()
+        val id = resolved.split("/").last().split("-").first()
         val title = (document.selectFirst("div.b-post__origtitle")?.text()?.trim()
             ?: document.selectFirst("div.b-post__title h1")?.text()?.trim()).toString()
         val poster = fixUrlNull(document.selectFirst("div.b-sidecover img")?.attr("src"))
@@ -108,7 +170,7 @@ class HDrezkaProvider : MainAPI() {
         val trailer = app.post(
             "$mainUrl/engine/ajax/gettrailervideo.php",
             data = mapOf("id" to id),
-            referer = url
+            referer = resolved
         ).parsedSafe<Trailer>()?.code.let {
             Jsoup.parse(it.toString()).select("iframe").attr("src")
         }
@@ -131,7 +193,7 @@ class HDrezkaProvider : MainAPI() {
 
         data["id"] = id
         data["favs"] = document.selectFirst("input#ctrl_favs")?.attr("value").toString()
-        data["ref"] = url
+        data["ref"] = resolved
 
         return if (tvType == TvType.TvSeries) {
             document.select("ul#translators-list li").map { res ->
@@ -147,7 +209,6 @@ class HDrezkaProvider : MainAPI() {
                 val episode = it.attr("data-episode_id").toIntOrNull()
                 val name = "Episode $episode"
 
-                // Fresh map per episode — shared HashMap can leak the last season/ep into all items
                 val episodeData = HashMap<String, Any>(data).apply {
                     this["season"] = "$season"
                     this["episode"] = "$episode"
@@ -162,7 +223,7 @@ class HDrezkaProvider : MainAPI() {
                 }, fix = false)
             }
 
-            newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes) {
+            newTvSeriesLoadResponse(title, resolved, TvType.TvSeries, episodes) {
                 this.posterUrl = poster
                 this.year = year
                 this.plot = description
@@ -188,7 +249,7 @@ class HDrezkaProvider : MainAPI() {
             data["server"] = server
             data["action"] = "get_movie"
 
-            newMovieLoadResponse(title, url, TvType.Movie, data.toJson()) {
+            newMovieLoadResponse(title, resolved, TvType.Movie, data.toJson()) {
                 this.posterUrl = poster
                 this.year = year
                 this.plot = description
@@ -287,9 +348,10 @@ class HDrezkaProvider : MainAPI() {
                     ?.trim() ?: continue
             for (raw in links.replace("[$quality]", "").split(" or ")) {
                 val link = raw.trim()
-                val type = if (link.contains(".m3u8")) "(Main)" else "(Backup)"
+                val type = if (link.contains(".m3u8")) "Main" else "Backup"
+                // "Studio • 1080p (Main)" — voiceover picker parses studio before quality
                 cleanCallback(
-                    "$source $type",
+                    "$source • $quality ($type)",
                     link,
                     quality,
                     link.contains(".m3u8"),
@@ -317,6 +379,7 @@ class HDrezkaProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
+        ensureWorkingMirror()
 
         tryParseJson<Data>(data)?.let { res ->
             if (res.server?.isEmpty() == true) {
