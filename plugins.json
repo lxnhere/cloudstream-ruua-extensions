@@ -209,10 +209,10 @@
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=rezka.ag&sz=%size%",
-        "fileHash": "sha256-8978eb70f3e3552b37fc0e1269c0c57d8ea834a2bbb4890efdac9ab0365be214",
+        "fileHash": "sha256-8890f2f8e15f5c7faba01c0a16895406308f3ccd6030f444a826f791122899fa",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 29917,
+        "fileSize": 30012,
         "status": 1,
         "language": "ru",
         "authors": [
