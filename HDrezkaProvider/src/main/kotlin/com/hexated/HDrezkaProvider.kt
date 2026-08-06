@@ -119,10 +119,15 @@ class HDrezkaProvider : MainAPI() {
             this.selectFirst("div.b-content__inline_item-link > a")?.text()?.trim().toString()
         val href = this.selectFirst("a")?.attr("href").toString()
         val posterUrl = this.select("img").attr("src")
+        val year = this.selectFirst("div.b-content__inline_item-link > div")?.text()
+            ?.let { Regex("""(?:19|20)\d{2}""").find(it)?.value?.toIntOrNull() }
+            ?: Regex("""(?<![0-9])((?:19|20)\d{2})(?![0-9])""").findAll(href)
+                .mapNotNull { it.groupValues[1].toIntOrNull() }.lastOrNull()
         val type = if (this.select("span.info").isNotEmpty()) TvType.TvSeries else TvType.Movie
         return if (type == TvType.Movie) {
             newMovieSearchResponse(title, href, TvType.Movie) {
                 this.posterUrl = posterUrl
+                this.year = year
             }
         } else {
             val episode =
@@ -130,6 +135,7 @@ class HDrezkaProvider : MainAPI() {
                     .toIntOrNull()
             newAnimeSearchResponse(title, href, TvType.TvSeries) {
                 this.posterUrl = posterUrl
+                this.year = year
                 addDubStatus(
                     dubExist = true,
                     dubEpisodes = episode,
