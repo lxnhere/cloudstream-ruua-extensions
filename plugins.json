@@ -209,10 +209,10 @@
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=filmix.gg&sz=%size%",
-        "fileHash": "sha256-389491d2e8e63108837e9e5b48cb7f6a3965fceb854622fe856f917234efc5fd",
+        "fileHash": "sha256-90e3ee1f018d73b67b9883bdb29565533950dffe7c7ad6f95499e171467fb807",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 34739,
+        "fileSize": 35298,
         "status": 1,
         "language": "ru",
         "authors": [
@@ -225,7 +225,7 @@
             "Anime",
             "Cartoon"
         ],
-        "version": 1,
+        "version": 2,
         "internalName": "FilmixProvider",
         "description": "Filmix RU streams with per-studio voiceovers. Ported from open-source resoul/filmix (Swift).",
         "url": "https://raw.githubusercontent.com/lxnhere/cloudstream-ruua-extensions/builds/FilmixProvider.cs3",
@@ -233,10 +233,10 @@
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=hdrezka.ag&sz=%size%",
-        "fileHash": "sha256-2f0a4cef22248b8377c6f1d68abda3bf8e00f214dc48d0a2a2a62024fed6de8a",
+        "fileHash": "sha256-b6d9de4447b80104deb5b394e7596d65145ff80776ed65cfe6e90c0e4a1b7706",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 33302,
+        "fileSize": 38951,
         "status": 1,
         "language": "ru",
         "authors": [
@@ -249,7 +249,7 @@
             "TvSeries",
             "Movie"
         ],
-        "version": 7,
+        "version": 8,
         "internalName": "HDrezkaProvider",
         "url": "https://raw.githubusercontent.com/lxnhere/cloudstream-ruua-extensions/builds/HDrezkaProvider.cs3",
         "name": "HDrezkaProvider"
