@@ -11,6 +11,7 @@ import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.getQualityFromName
 import com.lagradost.cloudstream3.utils.newExtractorLink
+import com.lagradost.nicehttp.Session
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -23,6 +24,9 @@ import java.util.*
  * HDrezka — tokenless scrape of public mirrors (n0madic/go-hdrezka defaults + extras).
  * Picks the first reachable mirror at runtime and refreshes paths against it.
  * Clears Techaro Anubis PoW (pass via homepage — film redir returns 500).
+ *
+ * Uses [Session] (CookieJar) — global [app] is a bare Requests with NO cookie jar,
+ * so Anubis auth cookies would otherwise be discarded after pass-challenge.
  */
 class HDrezkaProvider : MainAPI() {
     override var mainUrl = "https://hdrezka.ag"
@@ -36,6 +40,13 @@ class HDrezkaProvider : MainAPI() {
         TvType.Anime,
         TvType.AsianDrama
     )
+
+    private val http by lazy {
+        Session(app.baseClient).apply {
+            defaultHeaders = app.defaultHeaders
+            responseParser = app.responseParser
+        }
+    }
 
     companion object {
         /** Open-source defaults from n0madic/go-hdrezka + common public mirrors. */
@@ -133,16 +144,22 @@ class HDrezkaProvider : MainAPI() {
             "$k=${URLEncoder.encode(v, "UTF-8")}"
         }
         // Pass on the SAME host that issued the challenge (cookie domain must match).
-        app.get(
+        // Auth cookies land in [http] CookieJar — bare app.get would discard them.
+        val pass = http.get(
             "$mainUrl$basePrefix/.within.website/x/cmd/anubis/api/pass-challenge?$q",
             referer = redir,
             timeout = 35_000,
+        )
+        val auth = pass.cookies.keys.filter { it.contains("anubis", ignoreCase = true) }
+        Log.i(
+            "HDrezka",
+            "anubis pass code=${pass.code} authCookies=$auth jarHas=${pass.cookies.isNotEmpty()} nonce=$nonce ${elapsed}ms",
         )
     }
 
     /** GET that clears Anubis via homepage auth cookie when challenged. */
     private suspend fun fetchDocument(url: String, timeout: Long = 20_000): Document {
-        var resp = app.get(url, timeout = timeout)
+        var resp = http.get(url, timeout = timeout)
         syncMainUrl(resp.url)
         var html = resp.text
         if (isAnubisChallenge(html)) {
@@ -159,7 +176,7 @@ class HDrezkaProvider : MainAPI() {
                 }
                 else -> pageUrl(url)
             }
-            resp = app.get(retryUrl, timeout = timeout)
+            resp = http.get(retryUrl, timeout = timeout)
             syncMainUrl(resp.url)
             html = resp.text
         }
@@ -208,7 +225,7 @@ class HDrezkaProvider : MainAPI() {
                 } catch (_: Exception) {
                     mainUrl
                 }
-                var home = app.get("$host/", timeout = 12_000)
+                var home = http.get("$host/", timeout = 12_000)
                 syncMainUrl(home.url)
                 if (isAnubisChallenge(home.text)) {
                     passAnubisChallenge(home.text, redir = "$mainUrl/")
@@ -237,12 +254,12 @@ class HDrezkaProvider : MainAPI() {
         for (mirror in MIRRORS) {
             try {
                 val base = mirror.trimEnd('/')
-                var resp = app.get(base, timeout = 12_000)
+                var resp = http.get(base, timeout = 12_000)
                 syncMainUrl(resp.url)
                 var html = resp.text
                 if (isAnubisChallenge(html)) {
                     passAnubisChallenge(html, redir = "$mainUrl/")
-                    resp = app.get(mainUrl, timeout = 12_000)
+                    resp = http.get(mainUrl, timeout = 12_000)
                     syncMainUrl(resp.url)
                     html = resp.text
                 }
@@ -377,7 +394,7 @@ class HDrezkaProvider : MainAPI() {
                 .isNullOrEmpty()
         ) TvType.Movie else TvType.TvSeries
         val description = document.selectFirst("div.b-post__description_text")?.text()?.trim()
-        val trailer = app.post(
+        val trailer = http.post(
             "$mainUrl/engine/ajax/gettrailervideo.php",
             data = mapOf("id" to id),
             referer = resolved
@@ -627,7 +644,7 @@ class HDrezkaProvider : MainAPI() {
                 }
             } else {
                 res.server?.amap { server ->
-                    app.post(
+                    http.post(
                         url = "$mainUrl/ajax/get_cdn_series/?t=${Date().time}",
                         data = mapOf(
                             "id" to res.id,
