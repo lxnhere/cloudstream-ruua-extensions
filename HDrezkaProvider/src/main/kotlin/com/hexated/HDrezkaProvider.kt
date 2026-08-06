@@ -197,10 +197,11 @@ class HDrezkaProvider : MainAPI() {
 
         return if (tvType == TvType.TvSeries) {
             document.select("ul#translators-list li").map { res ->
+                val node = res.selectFirst("a[data-translator_id]") ?: res
                 server.add(
                     mapOf(
-                        "translator_name" to res.text(),
-                        "translator_id" to res.attr("data-translator_id"),
+                        "translator_name" to (node.attr("title").ifBlank { node.text() }),
+                        "translator_id" to node.attr("data-translator_id"),
                     )
                 )
             }
@@ -235,13 +236,14 @@ class HDrezkaProvider : MainAPI() {
             }
         } else {
             document.select("ul#translators-list li").map { res ->
+                val node = res.selectFirst("a[data-translator_id]") ?: res
                 server.add(
                     mapOf(
-                        "translator_name" to res.text(),
-                        "translator_id" to res.attr("data-translator_id"),
-                        "camrip" to res.attr("data-camrip"),
-                        "ads" to res.attr("data-ads"),
-                        "director" to res.attr("data-director")
+                        "translator_name" to (node.attr("title").ifBlank { node.text() }),
+                        "translator_id" to node.attr("data-translator_id"),
+                        "camrip" to node.attr("data-camrip"),
+                        "ads" to node.attr("data-ads"),
+                        "director" to node.attr("data-director")
                     )
                 )
             }
@@ -263,6 +265,12 @@ class HDrezkaProvider : MainAPI() {
     }
 
     private fun decryptStreamUrl(data: String): String {
+        // Newer mirrors sometimes return cleartext "[720p]https://... ,[1080p]https://..."
+        // instead of the legacy #h / //_// trash-encoded blob.
+        val trimmed = data.trim()
+        if (trimmed.contains("[") && trimmed.contains("http") && !trimmed.contains("#h")) {
+            return trimmed.replace("\\/", "/")
+        }
 
         fun getTrash(arr: List<String>, item: Int): List<String> {
             val trash = ArrayList<List<String>>()
@@ -289,8 +297,12 @@ class HDrezkaProvider : MainAPI() {
             trashString = trashString.replace(temp, "")
         }
 
-        return base64Decode(trashString)
-
+        return try {
+            base64Decode(trashString)
+        } catch (_: Exception) {
+            // Last resort: treat as cleartext if decode fails
+            trimmed.replace("\\/", "/")
+        }
     }
 
     private suspend fun cleanCallback(
