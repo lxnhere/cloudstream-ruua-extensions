@@ -1,5 +1,5 @@
 // bump when mirror probe / link naming changes (self-updates via extensions CDN)
-version = 8
+version = 9
 
 
 cloudstream {

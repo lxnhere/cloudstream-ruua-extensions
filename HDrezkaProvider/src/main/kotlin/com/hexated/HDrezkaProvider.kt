@@ -14,6 +14,7 @@ import com.lagradost.cloudstream3.utils.newExtractorLink
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import android.util.Log
 import java.net.URLEncoder
 import java.security.MessageDigest
 import java.util.*
@@ -63,6 +64,18 @@ class HDrezkaProvider : MainAPI() {
     private fun isAnubisChallenge(html: String): Boolean =
         html.contains("anubis_challenge", ignoreCase = true) ||
             html.contains("не бот")
+
+    /** Keep [mainUrl] on the host OkHttp actually landed on (ag → home.tv redirects). */
+    private fun syncMainUrl(finalUrl: String?) {
+        if (finalUrl.isNullOrBlank()) return
+        try {
+            val u = java.net.URI(finalUrl)
+            if (!u.scheme.isNullOrBlank() && !u.host.isNullOrBlank()) {
+                mainUrl = "${u.scheme}://${u.host}"
+            }
+        } catch (_: Exception) {
+        }
+    }
 
     /**
      * Anubis 1.25 "fast" PoW: leading zero **bytes** (and high nibble if odd difficulty),
@@ -119,6 +132,7 @@ class HDrezkaProvider : MainAPI() {
         ).joinToString("&") { (k, v) ->
             "$k=${URLEncoder.encode(v, "UTF-8")}"
         }
+        // Pass on the SAME host that issued the challenge (cookie domain must match).
         app.get(
             "$mainUrl$basePrefix/.within.website/x/cmd/anubis/api/pass-challenge?$q",
             referer = redir,
@@ -128,12 +142,18 @@ class HDrezkaProvider : MainAPI() {
 
     /** GET that clears Anubis via homepage auth cookie when challenged. */
     private suspend fun fetchDocument(url: String, timeout: Long = 20_000): Document {
-        var html = app.get(url, timeout = timeout).text
+        var resp = app.get(url, timeout = timeout)
+        syncMainUrl(resp.url)
+        var html = resp.text
         if (isAnubisChallenge(html)) {
             passAnubisChallenge(html, redir = "$mainUrl/")
-            html = app.get(url, timeout = timeout).text
+            // Re-fetch the original URL (host may have been synced to home.tv).
+            val retryUrl = pageUrl(url)
+            resp = app.get(retryUrl, timeout = timeout)
+            syncMainUrl(resp.url)
+            html = resp.text
         }
-        return Jsoup.parse(html, url)
+        return Jsoup.parse(html, resp.url ?: url)
     }
 
     private suspend fun ensureWorkingMirror() {
@@ -141,20 +161,21 @@ class HDrezkaProvider : MainAPI() {
         for (mirror in MIRRORS) {
             try {
                 val base = mirror.trimEnd('/')
-                var html = app.get(base, timeout = 12_000).text
+                var resp = app.get(base, timeout = 12_000)
+                syncMainUrl(resp.url)
+                var html = resp.text
                 if (isAnubisChallenge(html)) {
-                    // Temporarily point mainUrl so pass path is correct
-                    mainUrl = base
-                    passAnubisChallenge(html, redir = "$base/")
-                    html = app.get(base, timeout = 12_000).text
+                    passAnubisChallenge(html, redir = "$mainUrl/")
+                    resp = app.get(mainUrl, timeout = 12_000)
+                    syncMainUrl(resp.url)
+                    html = resp.text
                 }
-                val doc = Jsoup.parse(html, base)
+                val doc = Jsoup.parse(html, resp.url ?: base)
                 val ok = doc.selectFirst("div.b-content__inline_items, #search, form#search") != null
                     || doc.select("div.b-content__inline_item").isNotEmpty()
                     || doc.selectFirst("a[href*=/films/], a[href*=/series/]") != null
                     || html.length > 20_000
                 if (ok && !isAnubisChallenge(html)) {
-                    mainUrl = base
                     mirrorReady = true
                     return
                 }
@@ -169,13 +190,23 @@ class HDrezkaProvider : MainAPI() {
     private fun pageUrl(pathQuery: String): String {
         val p = pathQuery.trim()
         if (p.startsWith("http://") || p.startsWith("https://")) {
+            // Keep the search-result host (often hdrezka-home.tv); only rewrite path onto
+            // current mainUrl when we already synced to that mirror.
             return try {
                 val u = java.net.URI(p)
                 val path = u.rawPath ?: "/"
                 val q = u.rawQuery?.let { "?$it" }.orEmpty()
-                "$mainUrl$path$q"
+                val host = u.host
+                if (!host.isNullOrBlank() && mainUrl.contains(host, ignoreCase = true)) {
+                    p
+                } else if (!host.isNullOrBlank()) {
+                    // Prefer the URL's own host — Anubis cookies are host-scoped.
+                    "${u.scheme}://$host$path$q"
+                } else {
+                    "$mainUrl$path$q"
+                }
             } catch (_: Exception) {
-                p.replace(Regex("""https?://[^/]+"""), mainUrl)
+                p
             }
         }
         return mainUrl + if (p.startsWith("/")) p else "/$p"
@@ -354,6 +385,10 @@ class HDrezkaProvider : MainAPI() {
 
             data["server"] = server
             data["action"] = "get_movie"
+            Log.i(
+                "HDrezka",
+                "load movie id=$id host=$mainUrl translators=${server.size} anubisLeft=${isAnubisChallenge(document.html())}",
+            )
 
             newMovieLoadResponse(title, resolved, TvType.Movie, data.toJson()) {
                 this.posterUrl = poster
