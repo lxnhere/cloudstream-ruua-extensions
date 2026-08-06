@@ -40,8 +40,8 @@ class HDrezkaProvider : MainAPI() {
     companion object {
         /** Open-source defaults from n0madic/go-hdrezka + common public mirrors. */
         private val MIRRORS = listOf(
-            "https://hdrezka.ag",
             "https://hdrezka-home.tv",
+            "https://hdrezka.ag",
             "https://rezka.ag",
             "https://hdrzk.org",
             "https://hdrezka.co",
@@ -147,13 +147,89 @@ class HDrezkaProvider : MainAPI() {
         var html = resp.text
         if (isAnubisChallenge(html)) {
             passAnubisChallenge(html, redir = "$mainUrl/")
-            // Re-fetch the original URL (host may have been synced to home.tv).
-            val retryUrl = pageUrl(url)
+            val retryUrl = when {
+                resp.url?.startsWith("http") == true -> {
+                    // Same path on the synced host
+                    val path = try {
+                        java.net.URI(resp.url!!).rawPath + (java.net.URI(resp.url!!).rawQuery?.let { "?$it" } ?: "")
+                    } catch (_: Exception) {
+                        null
+                    }
+                    if (path != null) "$mainUrl$path" else pageUrl(url)
+                }
+                else -> pageUrl(url)
+            }
             resp = app.get(retryUrl, timeout = timeout)
             syncMainUrl(resp.url)
             html = resp.text
         }
         return Jsoup.parse(html, resp.url ?: url)
+    }
+
+    private fun filmPath(url: String): String {
+        return try {
+            val u = java.net.URI(if (url.startsWith("http")) url else pageUrl(url))
+            (u.rawPath ?: "/") + (u.rawQuery?.let { "?$it" } ?: "")
+        } catch (_: Exception) {
+            url.substringAfter(mainUrl, url).let { if (it.startsWith("/")) it else "/$it" }
+        }
+    }
+
+    private fun isUsableFilmPage(doc: Document): Boolean {
+        if (isAnubisChallenge(doc.html())) return false
+        val hasFavs = !doc.selectFirst("input#ctrl_favs")?.attr("value").isNullOrBlank()
+        val hasTr = doc.select("ul#translators-list li").isNotEmpty()
+        val hasTitle = doc.selectFirst("div.b-post__title h1, div.b-post__origtitle") != null
+        return hasTitle && (hasFavs || hasTr)
+    }
+
+    /**
+     * Film pages are host-sensitive (Anubis cookies + dead mirrors like rezka-ua.in).
+     * Try path on current host, then every mirror after clearing Anubis on that host.
+     */
+    private suspend fun fetchFilmDocument(url: String): Pair<Document, String> {
+        val path = filmPath(url)
+        val tried = LinkedHashSet<String>()
+        val candidates = mutableListOf<String>()
+        candidates += pageUrl(url)
+        candidates += "$mainUrl$path"
+        for (m in MIRRORS) {
+            candidates += m.trimEnd('/') + path
+        }
+        var lastDoc: Document? = null
+        var lastUrl = pageUrl(url)
+        for (candidate in candidates) {
+            if (!tried.add(candidate)) continue
+            try {
+                // Warm Anubis on this host's homepage first (film redir breaks).
+                val host = try {
+                    val u = java.net.URI(candidate)
+                    "${u.scheme}://${u.host}"
+                } catch (_: Exception) {
+                    mainUrl
+                }
+                var home = app.get("$host/", timeout = 12_000)
+                syncMainUrl(home.url)
+                if (isAnubisChallenge(home.text)) {
+                    passAnubisChallenge(home.text, redir = "$mainUrl/")
+                }
+                val doc = fetchDocument(candidate)
+                lastDoc = doc
+                lastUrl = candidate
+                if (isUsableFilmPage(doc)) {
+                    syncMainUrl(candidate)
+                    Log.i("HDrezka", "film OK $candidate translators=${doc.select("ul#translators-list li").size}")
+                    return doc to candidate
+                }
+                Log.w(
+                    "HDrezka",
+                    "film unusable $candidate len=${doc.html().length} anubis=${isAnubisChallenge(doc.html())}",
+                )
+            } catch (t: Throwable) {
+                Log.w("HDrezka", "film try failed $candidate: ${t.message}")
+            }
+        }
+        return (lastDoc ?: fetchDocument(pageUrl(url))) to lastUrl
     }
 
     private suspend fun ensureWorkingMirror() {
@@ -287,8 +363,7 @@ class HDrezkaProvider : MainAPI() {
 
     override suspend fun load(url: String): LoadResponse {
         ensureWorkingMirror()
-        val resolved = pageUrl(url)
-        val document = fetchDocument(resolved)
+        val (document, resolved) = fetchFilmDocument(url)
 
         val id = resolved.split("/").last().split("-").first()
         val title = (document.selectFirst("div.b-post__origtitle")?.text()?.trim()
@@ -327,7 +402,7 @@ class HDrezkaProvider : MainAPI() {
         val server = ArrayList<Map<String, String>>()
 
         data["id"] = id
-        data["favs"] = document.selectFirst("input#ctrl_favs")?.attr("value").toString()
+        data["favs"] = document.selectFirst("input#ctrl_favs")?.attr("value").orEmpty()
         data["ref"] = resolved
 
         return if (tvType == TvType.TvSeries) {
