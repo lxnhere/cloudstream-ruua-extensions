@@ -233,10 +233,10 @@
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=hdrezka.ag&sz=%size%",
-        "fileHash": "sha256-b6d9de4447b80104deb5b394e7596d65145ff80776ed65cfe6e90c0e4a1b7706",
+        "fileHash": "sha256-92bc1ecc24fa6a8bc803cf4203857d480b6bdcecfc215b8d37523b7cdc600f90",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 38951,
+        "fileSize": 39675,
         "status": 1,
         "language": "ru",
         "authors": [
@@ -249,7 +249,7 @@
             "TvSeries",
             "Movie"
         ],
-        "version": 8,
+        "version": 9,
         "internalName": "HDrezkaProvider",
         "url": "https://raw.githubusercontent.com/lxnhere/cloudstream-ruua-extensions/builds/HDrezkaProvider.cs3",
         "name": "HDrezkaProvider"
