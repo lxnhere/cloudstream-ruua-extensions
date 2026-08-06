@@ -281,6 +281,9 @@ class FilmixProvider : MainAPI() {
     }
 
     private suspend fun fetchTranslations(postId: Int, isSeries: Boolean): List<Translation> {
+        // Warm cookies (x-a-key) — player-data returns 403 without them.
+        val warm = app.get("$mainUrl/", headers = mapOf("User-Agent" to ua))
+        val xaKey = warm.cookies["x-a-key"] ?: "sinatra"
         val ts = System.currentTimeMillis() / 1000
         val response = app.post(
             "$mainUrl/api/movies/player-data?t=$ts",
@@ -292,6 +295,9 @@ class FilmixProvider : MainAPI() {
                 "User-Agent" to ua,
                 "X-Requested-With" to "XMLHttpRequest",
                 "Referer" to "$mainUrl/",
+                "Origin" to mainUrl,
+                "Accept" to "application/json, text/javascript, */*; q=0.01",
+                "x-a-key" to xaKey,
             ),
         ).text
 

@@ -12,12 +12,16 @@ import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.getQualityFromName
 import com.lagradost.cloudstream3.utils.newExtractorLink
 import org.jsoup.Jsoup
+import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import java.net.URLEncoder
+import java.security.MessageDigest
 import java.util.*
 
 /**
  * HDrezka — tokenless scrape of public mirrors (n0madic/go-hdrezka defaults + extras).
  * Picks the first reachable mirror at runtime and refreshes paths against it.
+ * Clears Techaro Anubis PoW (pass via homepage — film redir returns 500).
  */
 class HDrezkaProvider : MainAPI() {
     override var mainUrl = "https://hdrezka.ag"
@@ -36,26 +40,120 @@ class HDrezkaProvider : MainAPI() {
         /** Open-source defaults from n0madic/go-hdrezka + common public mirrors. */
         private val MIRRORS = listOf(
             "https://hdrezka.ag",
+            "https://hdrezka-home.tv",
             "https://rezka.ag",
             "https://hdrzk.org",
             "https://hdrezka.co",
             "https://rezka-ua.in",
+        )
+
+        private val ANUBIS_SCRIPT = Regex(
+            """<script[^>]*id=["']anubis_challenge["'][^>]*>([\s\S]*?)</script>""",
+            RegexOption.IGNORE_CASE,
+        )
+        private val ANUBIS_PREFIX = Regex(
+            """<script[^>]*id=["']anubis_base_prefix["'][^>]*>([\s\S]*?)</script>""",
+            RegexOption.IGNORE_CASE,
         )
     }
 
     @Volatile
     private var mirrorReady = false
 
+    private fun isAnubisChallenge(html: String): Boolean =
+        html.contains("anubis_challenge", ignoreCase = true) ||
+            html.contains("не бот")
+
+    /**
+     * Anubis 1.25 "fast" PoW: leading zero **bytes** (and high nibble if odd difficulty),
+     * matching `sha256-purejs.mjs` worker — not hex-char prefix alone.
+     */
+    private fun solveAnubisPow(randomData: String, difficulty: Int): Pair<Int, String> {
+        val fullBytes = difficulty / 2
+        val odd = difficulty % 2 != 0
+        val md = MessageDigest.getInstance("SHA-256")
+        var nonce = 0
+        while (true) {
+            val digest = md.digest("$randomData$nonce".toByteArray(Charsets.UTF_8))
+            md.reset()
+            var ok = true
+            for (i in 0 until fullBytes) {
+                if (digest[i] != 0.toByte()) {
+                    ok = false
+                    break
+                }
+            }
+            if (ok && odd && ((digest[fullBytes].toInt() and 0xff) shr 4) != 0) {
+                ok = false
+            }
+            if (ok) {
+                val hex = buildString(digest.size * 2) {
+                    for (b in digest) append("%02x".format(b))
+                }
+                return nonce to hex
+            }
+            nonce++
+            if (nonce > 50_000_000) error("Anubis PoW too hard")
+        }
+    }
+
+    private suspend fun passAnubisChallenge(html: String, redir: String) {
+        val raw = ANUBIS_SCRIPT.find(html)?.groupValues?.getOrNull(1)?.trim() ?: return
+        val payload = tryParseJson<AnubisPayload>(raw) ?: return
+        val ch = payload.challenge ?: return
+        val randomData = ch.randomData ?: return
+        val id = ch.id ?: return
+        val diff = payload.rules?.difficulty ?: ch.difficulty ?: 4
+        val started = System.currentTimeMillis()
+        val (nonce, response) = solveAnubisPow(randomData, diff)
+        val elapsed = (System.currentTimeMillis() - started).coerceAtLeast(50L)
+        val basePrefix = ANUBIS_PREFIX.find(html)?.groupValues?.getOrNull(1)
+            ?.trim()?.trim('"')?.trim().orEmpty()
+        val q = listOf(
+            "id" to id,
+            "response" to response,
+            "nonce" to nonce.toString(),
+            // Homepage redir is required — film URL as redir yields HTTP 500 on the title page.
+            "redir" to redir,
+            "elapsedTime" to elapsed.toString(),
+        ).joinToString("&") { (k, v) ->
+            "$k=${URLEncoder.encode(v, "UTF-8")}"
+        }
+        app.get(
+            "$mainUrl$basePrefix/.within.website/x/cmd/anubis/api/pass-challenge?$q",
+            referer = redir,
+            timeout = 35_000,
+        )
+    }
+
+    /** GET that clears Anubis via homepage auth cookie when challenged. */
+    private suspend fun fetchDocument(url: String, timeout: Long = 20_000): Document {
+        var html = app.get(url, timeout = timeout).text
+        if (isAnubisChallenge(html)) {
+            passAnubisChallenge(html, redir = "$mainUrl/")
+            html = app.get(url, timeout = timeout).text
+        }
+        return Jsoup.parse(html, url)
+    }
+
     private suspend fun ensureWorkingMirror() {
         if (mirrorReady) return
         for (mirror in MIRRORS) {
             try {
                 val base = mirror.trimEnd('/')
-                val doc = app.get(base, timeout = 12_000).document
+                var html = app.get(base, timeout = 12_000).text
+                if (isAnubisChallenge(html)) {
+                    // Temporarily point mainUrl so pass path is correct
+                    mainUrl = base
+                    passAnubisChallenge(html, redir = "$base/")
+                    html = app.get(base, timeout = 12_000).text
+                }
+                val doc = Jsoup.parse(html, base)
                 val ok = doc.selectFirst("div.b-content__inline_items, #search, form#search") != null
                     || doc.select("div.b-content__inline_item").isNotEmpty()
                     || doc.selectFirst("a[href*=/films/], a[href*=/series/]") != null
-                if (ok) {
+                    || html.length > 20_000
+                if (ok && !isAnubisChallenge(html)) {
                     mainUrl = base
                     mirrorReady = true
                     return
@@ -105,7 +203,7 @@ class HDrezkaProvider : MainAPI() {
         val parts = request.data.split("?", limit = 2)
         val path = parts.first()
         val query = parts.getOrNull(1)?.let { "?$it" }.orEmpty()
-        val home = app.get(pageUrl("${path}page/$page/$query")).document.select(
+        val home = fetchDocument(pageUrl("${path}page/$page/$query")).select(
             "div.b-content__inline_items div.b-content__inline_item"
         ).map {
             it.toSearchResult()
@@ -149,7 +247,7 @@ class HDrezkaProvider : MainAPI() {
     override suspend fun search(query: String): List<SearchResponse> {
         ensureWorkingMirror()
         val link = "$mainUrl/search/?do=search&subaction=search&q=$query"
-        val document = app.get(link).document
+        val document = fetchDocument(link)
 
         return document.select("div.b-content__inline_items div.b-content__inline_item").map {
             it.toSearchResult()
@@ -159,7 +257,7 @@ class HDrezkaProvider : MainAPI() {
     override suspend fun load(url: String): LoadResponse {
         ensureWorkingMirror()
         val resolved = pageUrl(url)
-        val document = app.get(resolved).document
+        val document = fetchDocument(resolved)
 
         val id = resolved.split("/").last().split("-").first()
         val title = (document.selectFirst("div.b-post__origtitle")?.text()?.trim()
@@ -401,7 +499,7 @@ class HDrezkaProvider : MainAPI() {
 
         tryParseJson<Data>(data)?.let { res ->
             if (res.server?.isEmpty() == true) {
-                val document = app.get(res.ref ?: return@let).document
+                val document = fetchDocument(res.ref ?: return@let)
                 document.select("script").map { script ->
                     if (script.data().contains("sof.tv.initCDNMoviesEvents(")) {
                         val dataJson =
@@ -482,4 +580,20 @@ class HDrezkaProvider : MainAPI() {
         @JsonProperty("code") val code: String?,
     )
 
+    data class AnubisPayload(
+        @JsonProperty("rules") val rules: AnubisRules? = null,
+        @JsonProperty("challenge") val challenge: AnubisChallenge? = null,
+    )
+
+    data class AnubisRules(
+        @JsonProperty("algorithm") val algorithm: String? = null,
+        @JsonProperty("difficulty") val difficulty: Int? = null,
+    )
+
+    data class AnubisChallenge(
+        @JsonProperty("id") val id: String? = null,
+        @JsonProperty("randomData") val randomData: String? = null,
+        @JsonProperty("difficulty") val difficulty: Int? = null,
+        @JsonProperty("method") val method: String? = null,
+    )
 }
