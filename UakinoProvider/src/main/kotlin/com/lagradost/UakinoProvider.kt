@@ -189,31 +189,66 @@ class UakinoProvider : MainAPI() {
         // Return to app
         // Parse Episodes as Series
         return if (tvType != TvType.Movie && tvType != TvType.AnimeMovie) {
-            val id = document.selectFirst("div.playlists-ajax")?.attr("data-news_id")
-                ?: url.split("/").last().split("-").first()
-            val episodes =
-                app.get(
-                    "$mainUrl/engine/ajax/playlists.php?news_id=$id&xfield=playlist&time=${Date().time}",
-                    headers = ajaxHeaders
-                )
+            val pageSeason = parseUakinoPageSeason(url, title) ?: 1
+            val baseTitle = uakinoSeriesBaseTitle(title).ifBlank { title }
+            val seasonUrls = LinkedHashSet<String>()
+            seasonUrls += url
+            // Uakino stores each season as a separate post — catalog S1 fails if we
+            // only keep the matched latest-season page. Pull sibling seasons via search.
+            try {
+                search(baseTitle).forEach { hit ->
+                    if (uakinoIsSiblingSeason(baseTitle, hit.name, hit.url)) {
+                        seasonUrls += hit.url
+                    }
+                }
+            } catch (_: Throwable) {
+                // Keep the current page only.
+            }
+
+            val episodes = mutableListOf<Episode>()
+            val seenKeys = LinkedHashSet<String>()
+            val queue = ArrayDeque(seasonUrls.toList())
+            val visited = LinkedHashSet<String>()
+            while (queue.isNotEmpty() && visited.size < 30) {
+                val seasonUrl = queue.removeFirst()
+                if (!visited.add(seasonUrl)) continue
+                val seasonDoc = if (seasonUrl == url) document else fetchDetail(seasonUrl) ?: continue
+                val seasonTitle = seasonDoc.selectFirst("h1 span.solototle")?.text()?.trim().orEmpty()
+                val thisSeason = parseUakinoPageSeason(seasonUrl, seasonTitle) ?: pageSeason
+                // Related season posts on the page (search alone often misses early seasons).
+                seasonDoc.select(".related-item").forEach { rel ->
+                    val hit = rel.toSearchResponse()
+                    if (uakinoIsSiblingSeason(baseTitle, hit.name, hit.url)) {
+                        queue += hit.url
+                    }
+                }
+                val id = seasonDoc.selectFirst("div.playlists-ajax")?.attr("data-news_id")
+                    ?: seasonUrl.split("/").last().split("-").first()
+                val ajaxUrl =
+                    "$mainUrl/engine/ajax/playlists.php?news_id=$id&xfield=playlist&time=${Date().time}"
+                val playlistHtml = app.get(ajaxUrl, headers = ajaxHeaders)
                     .parsedSafe<Responses>()
                     ?.response
-                    .let {
-                        Jsoup.parse(it.toString()).select("div.playlists-videos li").mapNotNull {
-                                eps ->
-                            val href =
-                                "$mainUrl/engine/ajax/playlists.php?news_id=$id&xfield=playlist&time=${Date().time}"
-                            val name = eps.text().trim() // Серія 1
-                            if (href.isNotEmpty()) {
-                                newEpisode("$href,$name") {
-                                    this.name = name
-                                    this.data = "$href,$name"
-                                }
-                            } else {
-                                null
-                            }
+                    ?: continue
+                Jsoup.parse(playlistHtml).select("div.playlists-videos li").forEach { eps ->
+                    val name = eps.text().trim()
+                    if (name.isEmpty()) return@forEach
+                    val parsed = parseUakinoEpisodeLabel(name)
+                    val seasonNum = parsed.season ?: thisSeason
+                    val episodeNum = parsed.episode ?: return@forEach
+                    val key = "$seasonNum:$episodeNum"
+                    if (!seenKeys.add(key)) return@forEach
+                    episodes.add(
+                        newEpisode("$ajaxUrl,$name") {
+                            this.name = name
+                            this.season = seasonNum
+                            this.episode = episodeNum
+                            this.data = "$ajaxUrl,$name"
                         }
-                    }
+                    )
+                }
+            }
+
             newAnimeLoadResponse(title, url, tvType) {
                 this.posterUrl = poster
                 this.engName = engTitle
@@ -223,7 +258,10 @@ class UakinoProvider : MainAPI() {
                 this.score = Score.from10(rating)
                 this.contentRating = contentRating
                 addActors(actors)
-                addEpisodes(DubStatus.None, episodes.distinctBy { it.name })
+                addEpisodes(
+                    DubStatus.None,
+                    episodes.sortedWith(compareBy({ it.season ?: 0 }, { it.episode ?: 0 }))
+                )
                 this.recommendations = recommendations
                 addTrailer(trailer)
             }

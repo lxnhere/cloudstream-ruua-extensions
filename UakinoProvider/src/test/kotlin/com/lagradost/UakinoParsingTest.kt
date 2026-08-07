@@ -5,6 +5,49 @@ import org.junit.Test
 
 class UakinoParsingTest {
     @Test
+    fun `episode label parses dashed season-episode`() {
+        assertEquals(UakinoSeasonEpisode(1, 3), parseUakinoEpisodeLabel("Серія 1-3"))
+        assertEquals(UakinoSeasonEpisode(2, 1), parseUakinoEpisodeLabel("Серія 2–1"))
+    }
+
+    @Test
+    fun `episode label parses plain episode with page season later`() {
+        assertEquals(UakinoSeasonEpisode(null, 12), parseUakinoEpisodeLabel("Серія 12"))
+    }
+
+    @Test
+    fun `page season is read from URL and title`() {
+        assertEquals(
+            9,
+            parseUakinoPageSeason(
+                "https://uakino.best/cartoon/cartoonseries/34181-rik-ta-morti-9-sezon.html",
+                "Рік та Морті 9 сезон",
+            ),
+        )
+        assertEquals(37, parseUakinoPageSeason("https://x/30136-simpsony-37-sezon.html", ""))
+    }
+
+    @Test
+    fun `sibling season filter keeps same show and drops spinoffs`() {
+        assertEquals(
+            true,
+            uakinoIsSiblingSeason(
+                "Рік та Морті",
+                "Рік та Морті",
+                "https://uakino.best/cartoon/cartoonseries/5547-rk-ta-mort-1-sezon.html",
+            ),
+        )
+        assertEquals(
+            false,
+            uakinoIsSiblingSeason(
+                "Сімпсони",
+                "Сімпсони: Короткометражки з шоу Трейсі Уллман",
+                "https://uakino.best/cartoon/cartoonseries/34505-simpsony-korotkometrazhky-1-sezon.html",
+            ),
+        )
+    }
+
+    @Test
     fun `player URL keeps a valid HTTPS scheme`() {
         assertEquals("https://video.example/player", normalizeUakinoPlayerUrl("http://video.example/player"))
         assertEquals("https://video.example/player", normalizeUakinoPlayerUrl("//video.example/player"))

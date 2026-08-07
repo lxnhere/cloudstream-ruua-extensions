@@ -56,6 +56,64 @@ class EneyidaProvider : MainAPI() {
 
     private val subtitleRegex = "subtitle\\s*:\\s*['\"]([^'\"]+)['\"]".toRegex()
 
+    private fun fixPlayerUrl(raw: String): String {
+        val src = raw.trim()
+        if (src.isBlank()) return ""
+        return when {
+            src.startsWith("//") -> "https:$src"
+            src.startsWith("/") -> mainUrl + src
+            else -> src
+        }
+    }
+
+    /** Skip trailers / empty / geo-blocked hdvbua pages. Movies use /vid/ and stay first. */
+    private fun isUsablePlayerHtml(html: String): Boolean {
+        if (html.length < 400) return false
+        if (html.contains("Доступ обмежено", ignoreCase = true)) return false
+        if (html.contains("Access denied", ignoreCase = true)) return false
+        return html.contains("file")
+    }
+
+    private suspend fun fetchPlayerHtml(playerUrl: String, referer: String): String {
+        val resp = app.get(playerUrl, referer = referer)
+        val scripts = resp.document.select("script").joinToString("\n") { it.data() }
+        return if (scripts.contains("file")) scripts else resp.text
+    }
+
+    /**
+     * Series pages often have several iframes (main embed + trailer /vid/?tr=1).
+     * Prefer non-trailer players that actually expose a file: payload.
+     */
+    private suspend fun resolveWorkingPlayer(
+        pageUrl: String,
+        document: org.jsoup.nodes.Document,
+    ): Pair<String, String>? {
+        val candidates = document.select(".tabs_b iframe, .video_box iframe, iframe")
+            .map { fixPlayerUrl(it.attr("src")) }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sortedBy { url ->
+                when {
+                    "tr=1" in url || "trailer" in url.lowercase() -> 2
+                    "/embed/" in url -> 0
+                    "/vid/" in url -> 1
+                    else -> 1
+                }
+            }
+        for (playerUrl in candidates) {
+            if ("tr=1" in playerUrl) continue
+            try {
+                val html = fetchPlayerHtml(playerUrl, pageUrl)
+                if (!isUsablePlayerHtml(html)) continue
+                val raw = extractFileValue(html)
+                if (raw.isNotBlank()) return playerUrl to html
+            } catch (_: Throwable) {
+                // try next iframe
+            }
+        }
+        return null
+    }
+
     // Sections
     override val mainPage = mainPageOf(
         "$mainUrl/films/page/" to "Фільми",
@@ -112,17 +170,18 @@ class EneyidaProvider : MainAPI() {
         val title = document.selectFirst("div.full_header-title h1")?.text()?.trim().toString()
         val poster = mainUrl + document.selectFirst(".full_content-poster img")?.attr("src")
         val banner = document.select(".full_header__bg-img").attr("style").substringAfterLast("url(").substringBefore(");")
-        val tags = fullInfo[1].select("a").map { it.text() }
-        val year = fullInfo[0].select("a").text().toIntOrNull()
-        val playerUrl = document.select(".tabs_b.visible iframe").attr("src")
+        val tags = fullInfo.getOrNull(1)?.select("a")?.map { it.text() }.orEmpty()
+        val year = fullInfo.getOrNull(0)?.select("a")?.text()?.toIntOrNull()
+        val playerResolved = resolveWorkingPlayer(url, document)
+        val playerUrl = playerResolved?.first.orEmpty()
 
         val description = document.selectFirst(".full_content-desc p")?.text()?.trim()
-        val countries = fullInfo[2].select("a").joinToString { it.text() }
-        val contentRating = fullInfo[5].selectFirst("span[class^=age]")?.text()
-        val plot = if (!countries.isNullOrBlank()) "<b>Країна: $countries.</b> $description" else description
+        val countries = fullInfo.getOrNull(2)?.select("a")?.joinToString { it.text() }.orEmpty()
+        val contentRating = fullInfo.getOrNull(5)?.selectFirst("span[class^=age]")?.text()
+        val plot = if (countries.isNotBlank()) "<b>Країна: $countries.</b> $description" else description
         val trailer = document.selectFirst("div#trailer_place iframe")?.attr("src").toString()
         val rating = document.selectFirst(".r_kp span, .r_imdb span")?.text()
-        val actors = fullInfo[4].select("a").map { it.text() }
+        val actors = fullInfo.getOrNull(4)?.select("a")?.map { it.text() }.orEmpty()
 
         val recommendations = document.select(".short.related_item").map {
             it.toSearchResponse()
@@ -131,7 +190,7 @@ class EneyidaProvider : MainAPI() {
         // Завантажуємо плеєр і розбираємо JSON щоб зрозуміти реальну структуру.
         // Тип контенту визначаємо виключно по JSON, а не по жанровому тегу:
         // "аніме" може бути і серіалом (Наруто) і фільмом (Хлопчик і Чапля).
-        val scriptHtml = app.get(playerUrl).document.select("script").html()
+        val scriptHtml = playerResolved?.second.orEmpty()
         val playerRawJson = extractFileValue(scriptHtml)
         val parsedJson = tryParseJson<List<PlayerJson>>(playerRawJson)
 
@@ -145,6 +204,11 @@ class EneyidaProvider : MainAPI() {
         val isDefinitelyMovie = tags.contains("фільм") or tags.contains("мультьфільм") or playerUrl.contains("/vod/")
 
         val tvType = when {
+            playerUrl.isBlank() || playerRawJson.isBlank() -> {
+                // Geo-blocked series embed and no usable iframe — still expose metadata.
+                if (tags.any { it.contains("серіал", ignoreCase = true) || it.contains("мультсеріал", ignoreCase = true) })
+                    TvType.TvSeries else TvType.Movie
+            }
             isDefinitelyMovie -> TvType.Movie
             parsedJson == null -> TvType.Movie
             firstItem?.file != null && firstItem.folder == null -> TvType.Movie  // масив озвучок фільму

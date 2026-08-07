@@ -8,6 +8,12 @@ internal data class UakinoEpisodeData(
     val episodeName: String?,
 )
 
+/** Parsed S/E from Uakino playlist labels / season page URL. */
+internal data class UakinoSeasonEpisode(
+    val season: Int?,
+    val episode: Int?,
+)
+
 internal fun normalizeUakinoPlayerUrl(rawUrl: String): String = when {
     rawUrl.startsWith("//") -> "https:$rawUrl"
     rawUrl.startsWith("http://") -> "https://${rawUrl.removePrefix("http://")}"
@@ -32,6 +38,92 @@ internal fun resolveUakinoDetailUrl(
 
 internal fun parseUakinoYear(rawYear: String, fallback: Int): Int =
     rawYear.trim().toIntOrNull() ?: fallback
+
+/**
+ * Playlist labels:
+ * - "Серія 12" → episode 12 (season from page)
+ * - "Серія 1-3" / "Серія 1–3" → season 1, episode 3
+ */
+internal fun parseUakinoEpisodeLabel(name: String): UakinoSeasonEpisode {
+    val text = name.trim()
+    val dashed = Regex(
+        """^[Сс]ерія\s+(\d+)\s*[-–—]\s*(\d+)\s*$"""
+    ).find(text)
+    if (dashed != null) {
+        return UakinoSeasonEpisode(
+            season = dashed.groupValues[1].toIntOrNull(),
+            episode = dashed.groupValues[2].toIntOrNull(),
+        )
+    }
+    val plain = Regex("""^[Сс]ерія\s+(\d+)\s*$""").find(text)
+    if (plain != null) {
+        return UakinoSeasonEpisode(
+            season = null,
+            episode = plain.groupValues[1].toIntOrNull(),
+        )
+    }
+    return UakinoSeasonEpisode(null, null)
+}
+
+/** URL `…-9-sezon.html` or title `… 9 сезон`. */
+internal fun parseUakinoPageSeason(url: String, title: String = ""): Int? {
+    Regex("""-(\d+)-sezon""", RegexOption.IGNORE_CASE).find(url)?.groupValues?.getOrNull(1)
+        ?.toIntOrNull()?.let { return it }
+    Regex("""(?:^|\s)(\d+)\s*[Сс]езон""").find(title)?.groupValues?.getOrNull(1)
+        ?.toIntOrNull()?.let { return it }
+    return null
+}
+
+/** Strip "N сезон" / spinoff noise for sibling-season search. */
+internal fun uakinoSeriesBaseTitle(title: String): String {
+    return title
+        .replace(Regex("""\s*\d+\s*[Сс]езон.*$"""), "")
+        .replace(Regex("""\s*[Сс]езон\s*\d+.*$"""), "")
+        .trim()
+}
+
+internal fun uakinoNormalizeTitle(name: String): String {
+    return name.lowercase()
+        .replace(Regex("""[^a-z0-9а-яіїєґё]+""", RegexOption.IGNORE_CASE), "")
+}
+
+/** True when search hit is another season of the same show (not spinoff / Fortnite). */
+internal fun uakinoIsSiblingSeason(
+    baseTitle: String,
+    hitTitle: String,
+    hitUrl: String,
+): Boolean {
+    if (!hitUrl.contains("-sezon", ignoreCase = true)) return false
+    if (hitUrl.contains("/franchise/", ignoreCase = true)) return false
+    val spinoff = listOf(
+        "короткометраж", "fortnite", "трейси", "ullman", "спіноф", "spin-off", "spinoff"
+    )
+    val low = hitTitle.lowercase()
+    if (spinoff.any { it in low }) return false
+    val base = uakinoNormalizeTitle(baseTitle)
+    val hit = uakinoNormalizeTitle(uakinoSeriesBaseTitle(hitTitle))
+    if (base.length < 4 || hit.length < 4) return false
+    return hit.contains(base) || base.contains(hit) ||
+        longestCommonSubstringLen(base, hit) >= minOf(6, base.length, hit.length)
+}
+
+private fun longestCommonSubstringLen(a: String, b: String): Int {
+    if (a.isEmpty() || b.isEmpty()) return 0
+    var best = 0
+    var prev = IntArray(b.length + 1)
+    var cur = IntArray(b.length + 1)
+    for (i in a.indices) {
+        for (j in b.indices) {
+            cur[j + 1] = if (a[i] == b[j]) prev[j] + 1 else 0
+            if (cur[j + 1] > best) best = cur[j + 1]
+        }
+        val tmp = prev
+        prev = cur
+        cur = tmp
+        cur.fill(0)
+    }
+    return best
+}
 
 /**
  * Розшифровує `file` з Tortuga-плеєра.

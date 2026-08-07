@@ -32,6 +32,7 @@ import com.lagradost.models.PlayerJson
 import com.lagradost.nicehttp.Session
 import okhttp3.FormBody
 import org.jsoup.nodes.Element
+import java.net.URLEncoder
 
 class UAFlixProvider : MainAPI() {
 
@@ -111,27 +112,39 @@ class UAFlixProvider : MainAPI() {
     }
 
     private fun Element.toSearchResponse(): AnimeSearchResponse {
-        val title = this.selectFirst("$titleSelector,.sres-img img")?.attr("alt")?.trim().toString()
-        val href = this.selectFirst("$hrefSelector,.sres-wrap")?.attr("href").toString()
-        val posterUrl = fixUrl(this.select("$posterSelector,.sres-img img").attr("src"))
+        // Home grid uses .vi-img; search results are <a class="sres-wrap"> (href on self).
+        val title = this.selectFirst("img")?.attr("alt")?.trim()
+            ?: this.selectFirst("h2")?.text()?.trim()
+            ?: this.selectFirst("$titleSelector,.sres-img img")?.attr("alt")?.trim()
+            ?: ""
+        val href = when {
+            this.hasClass("sres-wrap") || (this.tagName().equals("a", true) && this.hasAttr("href")) ->
+                this.attr("href")
+            else ->
+                this.selectFirst("$hrefSelector, a.sres-wrap, a")?.attr("href").orEmpty()
+        }
+        val posterUrl = fixUrl(
+            this.selectFirst("img")?.attr("src")
+                ?: this.select("$posterSelector,.sres-img img").attr("src")
+        )
 
         return newAnimeSearchResponse(title, href, TvType.Anime) {
             this.posterUrl = posterUrl
             addDubStatus(isDub = true)
         }
-
     }
 
     override suspend fun quickSearch(query: String): List<SearchResponse> = search(query)
 
     override suspend fun search(query: String): List<SearchResponse> {
+        val story = URLEncoder.encode(query.trim(), "UTF-8")
         val document = app.get(
-            url = "$mainUrl/index.php?do=search&subaction=search&search_start=0&story=$query",
+            url = "$mainUrl/index.php?do=search&subaction=search&search_start=0&story=$story",
         ).document
 
-        return document.select(".sres-wrap").map {
+        return document.select("a.sres-wrap, .sres-wrap").map {
             it.toSearchResponse()
-        }
+        }.filter { it.url.isNotBlank() && it.name.isNotBlank() }
     }
 
     // Detailed information
@@ -139,10 +152,14 @@ class UAFlixProvider : MainAPI() {
         val document = app.get(url).document
         // Parse info
 
-        val title = document.select(".fright h1").text().trim().replace("дивитись онлайн", "")
+        val title = document.selectFirst(".fright h1 span[itemprop=name], #ftitle span[itemprop=name], .fright h1, #ftitle, h1")
+            ?.text()?.trim()
+            ?.replace("дивитись онлайн", "", ignoreCase = true)
+            ?.trim()
+            .orEmpty()
         val engTitle = document.select("span.eng-rus").text()
         var poster = fixUrl(document.select(".img-box img").attr("data-src"))
-        if(poster.isNullOrBlank()){
+        if (poster.isNullOrBlank()) {
             poster = fixUrl(document.select(".img-box img").attr("src"))
         }
         val tags = mutableListOf<String>()

@@ -423,33 +423,48 @@ class HDrezkaProvider : MainAPI() {
         data["ref"] = resolved
 
         return if (tvType == TvType.TvSeries) {
-            document.select("ul#translators-list li").map { res ->
-                val node = res.selectFirst("a[data-translator_id]") ?: res
+            // Series-only: movies keep the branch below untouched.
+            val seenTr = LinkedHashSet<String>()
+            document.select("ul#translators-list li").forEach { res ->
+                val node = res.selectFirst("[data-translator_id]") ?: res
+                val tid = node.attr("data-translator_id").ifBlank {
+                    res.attr("data-translator_id")
+                }
+                if (tid.isBlank() || !seenTr.add(tid)) return@forEach
                 server.add(
                     mapOf(
-                        "translator_name" to (node.attr("title").ifBlank { node.text() }),
-                        "translator_id" to node.attr("data-translator_id"),
+                        "translator_name" to (node.attr("title").ifBlank { node.text() }).trim(),
+                        "translator_id" to tid,
                     )
                 )
             }
-            val episodes = document.select("div#simple-episodes-tabs ul li").map {
-                val season = it.attr("data-season_id").toIntOrNull()
-                val episode = it.attr("data-episode_id").toIntOrNull()
-                val name = "Episode $episode"
 
+            // Site uses <a class="b-simple_episode__item">, not <ul><li> — old
+            // "ul li" selector returned 0 episodes for Simpsons / long-running shows.
+            val episodeKeys = LinkedHashSet<Pair<Int, Int>>()
+            collectEpisodePairs(document).forEach { episodeKeys += it }
+            // Initial DOM often only has the latest seasons for the default voiceover.
+            // get_episodes expands the full S×E grid for a translator (e.g. 2x2 → S1…).
+            expandSeriesEpisodes(id, data["favs"] as String, resolved, server, episodeKeys)
+
+            val episodes = episodeKeys.sortedWith(compareBy({ it.first }, { it.second })).map { (season, episode) ->
                 val episodeData = HashMap<String, Any>(data).apply {
                     this["season"] = "$season"
                     this["episode"] = "$episode"
                     this["server"] = server
                     this["action"] = "get_stream"
                 }
-
                 newEpisode(episodeData.toJson(), {
-                    this.name = name
+                    this.name = "Episode $episode"
                     this.season = season
                     this.episode = episode
                 }, fix = false)
             }
+            Log.i(
+                "HDrezka",
+                "load series id=$id host=$mainUrl translators=${server.size} episodes=${episodes.size} " +
+                    "seasons=${episodeKeys.map { it.first }.toSet().sorted()} anubisLeft=${isAnubisChallenge(document.html())}",
+            )
 
             newTvSeriesLoadResponse(title, resolved, TvType.TvSeries, episodes) {
                 this.posterUrl = poster
@@ -493,6 +508,64 @@ class HDrezkaProvider : MainAPI() {
                 addTrailer(trailer)
             }
         }
+    }
+
+    /** Episode nodes on series pages (anchors or list items). */
+    private fun collectEpisodePairs(root: org.jsoup.nodes.Element): List<Pair<Int, Int>> {
+        return root.select(
+            "div#simple-episodes-tabs a.b-simple_episode__item, " +
+                "div#simple-episodes-tabs li.b-simple_episode__item, " +
+                "ul.b-simple_episodes__list [data-season_id][data-episode_id], " +
+                "[data-season_id][data-episode_id]"
+        ).mapNotNull { el ->
+            val season = el.attr("data-season_id").toIntOrNull() ?: return@mapNotNull null
+            val episode = el.attr("data-episode_id").toIntOrNull() ?: return@mapNotNull null
+            season to episode
+        }
+    }
+
+    /**
+     * Long-running series only ship the latest seasons in the first HTML.
+     * Merge episode grids from get_episodes across voiceovers until season 1
+     * appears (or a few translators were tried). Movie path never calls this.
+     */
+    private suspend fun expandSeriesEpisodes(
+        id: String,
+        favs: String,
+        referer: String,
+        translators: List<Map<String, String>>,
+        into: LinkedHashSet<Pair<Int, Int>>,
+    ) {
+        if (translators.isEmpty()) return
+        val before = into.size
+        for (tr in translators.take(6)) {
+            val tid = tr["translator_id"] ?: continue
+            try {
+                val ajax = http.post(
+                    url = "$mainUrl/ajax/get_cdn_series/?t=${Date().time}",
+                    data = mapOf(
+                        "id" to id,
+                        "translator_id" to tid,
+                        "favs" to favs,
+                        "season" to "1",
+                        "action" to "get_episodes",
+                    ),
+                    referer = referer,
+                ).parsedSafe<EpisodesAjax>() ?: continue
+                if (ajax.success == false) continue
+                val html = buildString {
+                    append(ajax.episodes.orEmpty())
+                    append(ajax.seasons.orEmpty())
+                }
+                if (html.isBlank()) continue
+                collectEpisodePairs(Jsoup.parse(html)).forEach { into += it }
+            } catch (t: Throwable) {
+                Log.w("HDrezka", "get_episodes failed tr=$tid: ${t.message}")
+            }
+            // Early seasons present → catalog S1/S2 lookups will work.
+            if (into.any { it.first == 1 }) break
+        }
+        Log.i("HDrezka", "expand episodes $before → ${into.size}")
     }
 
     private fun decryptStreamUrl(data: String): String {
@@ -673,6 +746,13 @@ class HDrezkaProvider : MainAPI() {
 
         return true
     }
+
+    data class EpisodesAjax(
+        @JsonProperty("success") val success: Boolean? = null,
+        @JsonProperty("episodes") val episodes: String? = null,
+        @JsonProperty("seasons") val seasons: String? = null,
+        @JsonProperty("message") val message: String? = null,
+    )
 
     data class LocalSources(
         @JsonProperty("streams") val streams: String,
