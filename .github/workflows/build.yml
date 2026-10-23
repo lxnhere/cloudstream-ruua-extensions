@@ -56,6 +56,9 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # Google removed the legacy "tools" package; do not use action defaults.
+          packages: platform-tools platforms;android-35 build-tools;35.0.0
 
       - name: Build plugins
         run: |
