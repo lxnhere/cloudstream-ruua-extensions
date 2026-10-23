@@ -19,6 +19,7 @@ import android.util.Log
 import java.net.URLEncoder
 import java.security.MessageDigest
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * HDrezka — tokenless scrape of public mirrors (n0madic/go-hdrezka defaults + extras).
@@ -49,14 +50,11 @@ class HDrezkaProvider : MainAPI() {
     }
 
     companion object {
-        /** Open-source defaults from n0madic/go-hdrezka + common public mirrors. */
+        /** Live mirrors only (403 hosts removed: hdrzk.org, hdrezka.co, rezka-ua.in). */
         private val MIRRORS = listOf(
             "https://hdrezka-home.tv",
             "https://hdrezka.ag",
             "https://rezka.ag",
-            "https://hdrzk.org",
-            "https://hdrezka.co",
-            "https://rezka-ua.in",
         )
 
         private val ANUBIS_SCRIPT = Regex(
@@ -431,10 +429,17 @@ class HDrezkaProvider : MainAPI() {
                     res.attr("data-translator_id")
                 }
                 if (tid.isBlank() || !seenTr.add(tid)) return@forEach
+                // Slug page for this studio yields a favs token that get_stream accepts.
+                val href = sequenceOf(
+                    node.attr("href"),
+                    res.selectFirst("a[href]")?.attr("href").orEmpty(),
+                    res.attr("data-link"),
+                ).firstOrNull { it.isNotBlank() && it != "#" }.orEmpty()
                 server.add(
                     mapOf(
                         "translator_name" to (node.attr("title").ifBlank { node.text() }).trim(),
                         "translator_id" to tid,
+                        "translator_url" to href,
                     )
                 )
             }
@@ -716,13 +721,21 @@ class HDrezkaProvider : MainAPI() {
                     }
                 }
             } else {
+                // Series get_stream binds favs to the active translator session.
+                // Reusing one favs for every studio → «Время сессии истекло».
+                val favsCache = ConcurrentHashMap<String, String>()
                 res.server?.amap { server ->
+                    val favs = if (res.action == "get_stream") {
+                        favsForTranslator(server, res.favs, res.ref, favsCache)
+                    } else {
+                        res.favs
+                    }
                     http.post(
                         url = "$mainUrl/ajax/get_cdn_series/?t=${Date().time}",
                         data = mapOf(
                             "id" to res.id,
                             "translator_id" to server.translator_id,
-                            "favs" to res.favs,
+                            "favs" to favs,
                             "is_camrip" to server.camrip,
                             "is_ads" to server.ads,
                             "is_director" to server.director,
@@ -730,7 +743,8 @@ class HDrezkaProvider : MainAPI() {
                             "episode" to res.episode,
                             "action" to res.action,
                         ).filterValues { it != null }.mapValues { it.value as String },
-                        referer = res.ref
+                        referer = server.translator_url?.takeIf { it.isNotBlank() }?.let { pageUrl(it) }
+                            ?: res.ref
                     ).parsedSafe<Sources>()?.let { source ->
                         invokeSources(
                             server.translator_name.toString(),
@@ -745,6 +759,40 @@ class HDrezkaProvider : MainAPI() {
         }
 
         return true
+    }
+
+    /**
+     * Fetch a per-studio [favs] token by opening the translator slug page.
+     * Falls back to the default-page favs when no slug is available.
+     */
+    private suspend fun favsForTranslator(
+        server: Server,
+        defaultFavs: String?,
+        ref: String?,
+        cache: ConcurrentHashMap<String, String>,
+    ): String {
+        val tid = server.translator_id.orEmpty()
+        if (tid.isNotBlank()) {
+            cache[tid]?.let { return it }
+        }
+        val slug = server.translator_url?.takeIf { it.isNotBlank() }
+        if (slug.isNullOrBlank()) {
+            return defaultFavs.orEmpty()
+        }
+        return try {
+            val abs = pageUrl(slug)
+            val doc = fetchDocument(abs)
+            val favs = doc.selectFirst("input#ctrl_favs")?.attr("value").orEmpty()
+            val resolved = favs.ifBlank { defaultFavs.orEmpty() }
+            if (tid.isNotBlank() && resolved.isNotBlank()) {
+                cache[tid] = resolved
+            }
+            Log.i("HDrezka", "favs for tr=$tid from=$abs len=${resolved.length}")
+            resolved
+        } catch (t: Throwable) {
+            Log.w("HDrezka", "favs fetch failed tr=$tid: ${t.message}")
+            defaultFavs.orEmpty()
+        }
     }
 
     data class EpisodesAjax(
@@ -767,9 +815,10 @@ class HDrezkaProvider : MainAPI() {
     data class Server(
         @JsonProperty("translator_name") val translator_name: String?,
         @JsonProperty("translator_id") val translator_id: String?,
-        @JsonProperty("camrip") val camrip: String?,
-        @JsonProperty("ads") val ads: String?,
-        @JsonProperty("director") val director: String?,
+        @JsonProperty("translator_url") val translator_url: String? = null,
+        @JsonProperty("camrip") val camrip: String? = null,
+        @JsonProperty("ads") val ads: String? = null,
+        @JsonProperty("director") val director: String? = null,
     )
 
     data class Data(

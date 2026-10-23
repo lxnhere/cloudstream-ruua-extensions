@@ -60,15 +60,60 @@ class UASerialsProProvider : MainAPI() {
     val subsRegex = "subtitle\\s*:\\s*[\"']([^\",']+?)[\"']".toRegex()
     val USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:144.0) Gecko/20100101 Firefox/144.0"
 
-    // Sections
-    override val mainPage = mainPageOf(
-        "$mainUrl/films/page/" to "Фільми",
-        "$mainUrl/series/page/" to "Серіали",
-        "$mainUrl/fcartoon/page/" to "Мультфільми",
-        "$mainUrl/cartoons/page/" to "Мультсеріали",
-        "$mainUrl/anime/page/" to "Аніме",
-        "$mainUrl/exclusive/page/" to "Ексклюзив",
+    /** Same backend as .com (CF redirects). Do NOT include .pro/.my (hdvbua) or .net/.fm (ashdi). */
+    private val MIRRORS = listOf(
+        "https://uaserials.com",
+        "https://uaserials.org",
+        "https://uaserials.cc",
+        "https://uaserials.tv",
     )
+
+    @Volatile
+    private var mirrorReady = false
+
+    // Paths only — host resolved via [ensureWorkingMirror]
+    override val mainPage = mainPageOf(
+        "/films/page/" to "Фільми",
+        "/series/page/" to "Серіали",
+        "/fcartoon/page/" to "Мультфільми",
+        "/cartoons/page/" to "Мультсеріали",
+        "/anime/page/" to "Аніме",
+        "/exclusive/page/" to "Ексклюзив",
+    )
+
+    private suspend fun ensureWorkingMirror() {
+        if (mirrorReady) return
+        for (mirror in MIRRORS) {
+            try {
+                val base = mirror.trimEnd('/')
+                val resp = app.get(base, timeout = 12_000, headers = mapOf("User-Agent" to USER_AGENT))
+                if (resp.isSuccessful && resp.text.contains("short-item", ignoreCase = true)) {
+                    mainUrl = base
+                    mirrorReady = true
+                    return
+                }
+            } catch (_: Exception) {
+            }
+        }
+        mirrorReady = true
+    }
+
+    /** Rewrite absolute catalog URLs onto the live mirror host. */
+    private fun onMirror(url: String): String {
+        if (url.isBlank()) return url
+        return try {
+            if (!url.startsWith("http")) {
+                mainUrl + if (url.startsWith("/")) url else "/$url"
+            } else {
+                val u = java.net.URI(url)
+                val path = u.rawPath ?: "/"
+                val q = u.rawQuery?.let { "?$it" }.orEmpty()
+                "$mainUrl$path$q"
+            }
+        } catch (_: Exception) {
+            url
+        }
+    }
 
     // Main Page
     private val animeSelector = ".short-item"
@@ -94,12 +139,14 @@ class UASerialsProProvider : MainAPI() {
         page: Int,
         request: MainPageRequest
     ): HomePageResponse {
+        ensureWorkingMirror()
+        val path = request.data
         val url = if (page <= 1) {
-            request.data.removeSuffix("page/")
+            onMirror(path.removeSuffix("page/"))
         } else {
-            "${request.data}$page/"
+            onMirror("$path$page/")
         }
-        val document = app.get(url).document
+        val document = app.get(url, headers = mapOf("User-Agent" to USER_AGENT)).document
 
         val home = document.select(animeSelector).map {
             it.toSearchResponse()
@@ -110,8 +157,9 @@ class UASerialsProProvider : MainAPI() {
     private fun Element.toSearchResponse(): AnimeSearchResponse {
         val title = this.selectFirst(titleSelector)?.text()?.trim().toString()
         val engTitle = this.selectFirst(engTitleSelector)?.text()?.trim().toString()
-        val href = this.selectFirst(hrefSelector)?.attr("href").toString()
-        val posterUrl = this.selectFirst(posterSelector)?.attr("data-src")
+        val href = onMirror(this.selectFirst(hrefSelector)?.attr("href").orEmpty())
+        val rawPoster = this.selectFirst(posterSelector)?.attr("data-src")
+        val posterUrl = if (rawPoster?.startsWith("/") == true) "$mainUrl$rawPoster" else rawPoster
 
         return newAnimeSearchResponse(title, href, TvType.Anime) {
             this.otherName = engTitle
@@ -123,13 +171,17 @@ class UASerialsProProvider : MainAPI() {
     override suspend fun quickSearch(query: String): List<SearchResponse> = search(query)
 
     override suspend fun search(query: String): List<SearchResponse> {
+        ensureWorkingMirror()
         val encodedQuery = java.net.URLEncoder.encode(query, "utf-8").replace("+", "%20")
-        val document = app.get("$mainUrl/search/$encodedQuery/").document
+        val document = app.get(
+            "$mainUrl/search/$encodedQuery/",
+            headers = mapOf("User-Agent" to USER_AGENT),
+        ).document
 
         return document.select(".uas-card").map {
             val title = it.selectFirst(".uas-card__title")?.text()?.trim().toString()
             val engTitle = it.selectFirst(".uas-card__orig")?.text()?.trim().toString()
-            val href = it.attr("href")
+            val href = onMirror(it.attr("href"))
             val rawPoster = it.selectFirst(".uas-card__img")?.attr("data-src")
             val posterUrl = if (rawPoster?.startsWith("/") == true) "$mainUrl$rawPoster" else rawPoster
 
@@ -143,7 +195,9 @@ class UASerialsProProvider : MainAPI() {
 
     // Detailed information
     override suspend fun load(url: String): LoadResponse {
-        val document = app.get(url, headers = mapOf("User-Agent" to USER_AGENT)).document
+        ensureWorkingMirror()
+        val pageUrl = onMirror(url)
+        val document = app.get(pageUrl, headers = mapOf("User-Agent" to USER_AGENT)).document
 
         val title = document.select(".short-title").text()
         val engTitle = document.select(".oname").text()

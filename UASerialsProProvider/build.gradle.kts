@@ -1,5 +1,5 @@
 // use an integer for version numbers
-version = 26
+version = 27
 
 dependencies {
     implementation(libs.gson)
@@ -12,8 +12,8 @@ cloudstream {
     language = "uk"
     // All of these properties are optional, you can safely remove them
 
-    description = "UASerials.pro — твої улюблені серіали українською мовою онлайн."
-    authors = listOf("CakesTwix")
+    description = "UASerials.com — серіали та фільми українською (зеркала .org/.cc/.tv)."
+    authors = listOf("CakesTwix", "lxnhere")
 
     /**
      * Status int as the following:
@@ -24,5 +24,5 @@ cloudstream {
      * */
     status = 1 // will be 3 if unspecified
 
-    iconUrl = "https://www.google.com/s2/favicons?domain=uaserials.pro&sz=%size%"
+    iconUrl = "https://www.google.com/s2/favicons?domain=uaserials.com&sz=%size%"
 }
