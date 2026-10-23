@@ -1,10 +1,10 @@
 [
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=anilibria.tv&sz=%size%",
-        "fileHash": "sha256-3a0ed6c2308c3181ffa74d4fbd6517941c6e18d585f6b85427f37031c5331946",
+        "fileHash": "sha256-784f75b9b29e0540a4b79d24ff3ea36c5439c329302f5aaf23bf5cfd49740afe",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 17309,
+        "fileSize": 17331,
         "status": 1,
         "language": "ru",
         "authors": [
@@ -22,10 +22,10 @@
     },
     {
         "iconUrl": "https://animeon.club/assets/images/short-logo.png",
-        "fileHash": "sha256-dc18a7c0d4d61edd0899b58ceb1a0cd418795da1ef6ed51976d666ddf3e7bc69",
+        "fileHash": "sha256-a08f9b8153e50a884857e15b7c9f68b6429c3bc146a7f2d4abaeccf993924b9d",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 94876,
+        "fileSize": 95262,
         "status": 1,
         "language": "uk",
         "authors": [
@@ -45,10 +45,10 @@
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=animeua.club&sz=%size%",
-        "fileHash": "sha256-c8651b97d7c40c66ce2e63db4e88cf53cfad3a475f409662a332778d3eef2f35",
+        "fileHash": "sha256-c7277e7605954fedb96c623d7c79c22143d9cf27d97a600861e6454b7ffe945e",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 26873,
+        "fileSize": 27117,
         "status": 1,
         "language": "uk",
         "authors": [
@@ -67,10 +67,10 @@
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=anitube.in.ua&sz=%size%",
-        "fileHash": "sha256-e8a36e63c7e7a88fe7ca25a20766f2454df476c260ea509064bc932e85c686e3",
+        "fileHash": "sha256-4c4d48c7f0300582c76b36f095ebc12e667e5ffeaa34ab24b326b72aaef211cc",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 50942,
+        "fileSize": 50906,
         "status": 3,
         "language": "uk",
         "authors": [
@@ -87,10 +87,10 @@
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=bambooua.com&sz=%size%",
-        "fileHash": "sha256-bf0ec48824089591589b10ec2265b13e8b2af83624c4bdb782824efeb71cb2c3",
+        "fileHash": "sha256-0e47bdd9560c3cd1bd798d37a85682b2938b89851e6e02c007220a2baf3fc93e",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 20862,
+        "fileSize": 20885,
         "status": 1,
         "language": "uk",
         "authors": [
@@ -108,10 +108,10 @@
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=banderakino.online&sz=%size%",
-        "fileHash": "sha256-184e31cd76e60e3894293976693e64dd2d42f55d228a299b9e64df907e4807a8",
+        "fileHash": "sha256-4fb89b95663e2683cf28487f4c9d2a0c47ae2b132d3facf5520b21ebd124cfa5",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 29474,
+        "fileSize": 29549,
         "status": 1,
         "language": "uk",
         "authors": [
@@ -126,10 +126,10 @@
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=cikava-ideya.top&sz=%size%",
-        "fileHash": "sha256-61252096e7256359d676ccb7a5e215aa8baf97ce441096900ef472ec773bf087",
+        "fileHash": "sha256-4a7eecc5062b933c76ee789c5bcc52487918ed867def93db7bab2574d0743748",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 15669,
+        "fileSize": 15671,
         "status": 1,
         "language": "uk",
         "authors": [
@@ -148,10 +148,10 @@
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=coani.net&sz=%size%",
-        "fileHash": "sha256-8c06a98fa394ec725035bdc02a6e08babe5313adbde7603a77b2a8335ab7365e",
+        "fileHash": "sha256-e5c7c3cfddaa5ccb4838f1819c3a0d66918cd53564c1da2dc911702f08236666",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 30134,
+        "fileSize": 30284,
         "status": 1,
         "language": "uk",
         "authors": [
@@ -166,10 +166,10 @@
     },
     {
         "iconUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrZAw8JCRhrw1pDMb5_nYDPYQOPVC4T1JDH3PpLB5Bf35ts32ohXNFsRic&s=10",
-        "fileHash": "sha256-683838e42e79484f289d5a2a287506822610e4923a3b538f63ad2795fd426565",
+        "fileHash": "sha256-27e86014f09c4d29febc2d753d6cbb1af1ec39a49d7b41da09ff429afbf99f09",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 20871,
+        "fileSize": 20965,
         "status": 1,
         "language": "uk",
         "authors": [
@@ -187,10 +187,10 @@
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=eneyida.tv&sz=%size%",
-        "fileHash": "sha256-c15f63370a8856e52776da343c207628422b62a5d12e35a273e7a9d0d8857f26",
+        "fileHash": "sha256-f768dd1ffc1b110ede6178fde3ed687edf4ddd378e7ddf6c0cda0c5365c00618",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 35310,
+        "fileSize": 35444,
         "status": 3,
         "language": "uk",
         "authors": [
@@ -209,10 +209,10 @@
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=filmix.gg&sz=%size%",
-        "fileHash": "sha256-90e3ee1f018d73b67b9883bdb29565533950dffe7c7ad6f95499e171467fb807",
+        "fileHash": "sha256-520c02983611286a21e40696c7494a85b173cbc0d25e969559d70dda893b2774",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 35298,
+        "fileSize": 35335,
         "status": 1,
         "language": "ru",
         "authors": [
@@ -233,10 +233,10 @@
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=hdrezka.ag&sz=%size%",
-        "fileHash": "sha256-b254b89e558b53752e2ad0a33a16475c735c256be29fdc034dc79319fdede030",
+        "fileHash": "sha256-4e793c323afc2d172c545b6e1479e785b58d2413a9ded769da93680702e3a4c0",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 50060,
+        "fileSize": 52896,
         "status": 1,
         "language": "ru",
         "authors": [
@@ -249,17 +249,17 @@
             "TvSeries",
             "Movie"
         ],
-        "version": 12,
+        "version": 13,
         "internalName": "HDrezkaProvider",
         "url": "https://raw.githubusercontent.com/lxnhere/cloudstream-ruua-extensions/builds/HDrezkaProvider.cs3",
         "name": "HDrezkaProvider"
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=kinotron.top&sz=%size%",
-        "fileHash": "sha256-27ba28987a423565aece60c435d41041f2e894033788e41317674412c2120045",
+        "fileHash": "sha256-44510f2b1fa475e1937f4d9af8ed6bc03b5bbec1aa6d5866523d12b6333a00a6",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 19677,
+        "fileSize": 19653,
         "status": 1,
         "language": "uk",
         "authors": [
@@ -279,10 +279,10 @@
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=kinovezha.com&sz=%size%",
-        "fileHash": "sha256-2704b90ecdab707c5fc6b9f773f3ed34ffeb9767a26ae3206785752df1bca9b5",
+        "fileHash": "sha256-eade872bd4e49e19b2c226eaccada38b518fd600d29795f604908ed8252731a8",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 21241,
+        "fileSize": 21271,
         "status": 1,
         "language": "uk",
         "authors": [
@@ -301,10 +301,10 @@
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=klon.tv&sz=%size%",
-        "fileHash": "sha256-aab50690f83965366068dca541e89ac5caafbedcc24941f055508012a0731f07",
+        "fileHash": "sha256-fb7b4a03568c39dfcfe7a4b3acf7f0e17fa6e271f6658a7edb941bf65082632f",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 35252,
+        "fileSize": 35368,
         "status": 1,
         "language": "uk",
         "authors": [
@@ -323,11 +323,34 @@
         "name": "KlonTVProvider"
     },
     {
-        "iconUrl": "https://www.google.com/s2/favicons?domain=serialno.tv&sz=%size%",
-        "fileHash": "sha256-8833a4e3441b921b095a7e8dade3547b9bff9540701e6a4ca4d7ee3ee3fb1aa3",
+        "iconUrl": "https://www.google.com/s2/favicons?domain=moviestape.lat&sz=%size%",
+        "fileHash": "sha256-5c75663195405cee9535c4c3d60d91495b906c7b0b39c7807986a75a78db6230",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 20248,
+        "fileSize": 20537,
+        "status": 1,
+        "language": "uk",
+        "authors": [
+            "lxnhere"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries",
+            "Anime",
+            "Cartoon"
+        ],
+        "version": 1,
+        "internalName": "MovieTapeProvider",
+        "description": "Moviestape.lat \u2014 \u043a\u0456\u043d\u043e \u0443\u043a\u0440\u0430\u0457\u043d\u0441\u044c\u043a\u043e\u044e (Playerjs / progressive MP4).",
+        "url": "https://raw.githubusercontent.com/lxnhere/cloudstream-ruua-extensions/builds/MovieTapeProvider.cs3",
+        "name": "MovieTapeProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=serialno.tv&sz=%size%",
+        "fileHash": "sha256-934f95626623da96eb5ab59a8e1cc1f520d72d8512df504ca8cc200c7c304a08",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
+        "fileSize": 20247,
         "status": 1,
         "language": "uk",
         "authors": [
@@ -344,10 +367,10 @@
         "name": "SerialnoProvider"
     },
     {
-        "fileHash": "sha256-9308dbab730cf5a2a9daf756eae593d48d6484b82a164356400223095e5fcbb3",
+        "fileHash": "sha256-016f946d7bcf8ee65dbc952f62f173eb5af9e1151478f4dcd3aa66de337aed82",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 95384,
+        "fileSize": 95301,
         "status": 1,
         "language": "uk",
         "authors": [
@@ -364,10 +387,10 @@
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=uafix.net&sz=%size%",
-        "fileHash": "sha256-607ee1dcd8f4323084a528218b34c60757a4ca91f557fe889badb6ec945395b2",
+        "fileHash": "sha256-a2a35c9b393f59539fdff4ee7fe942dbf3bd6f07209cba1928bc956e0d00265a",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 31498,
+        "fileSize": 31506,
         "status": 1,
         "language": "uk",
         "authors": [
@@ -381,10 +404,10 @@
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=uakino.club&sz=%size%",
-        "fileHash": "sha256-eabc0c68eee26b9e50f69341671127bca1b76fe74acef7e61c10baaba1c13428",
+        "fileHash": "sha256-7f3109782c66ddb2680d1169c9abfbd8a63eb787e1cd51d456ed0e63d35292d3",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 33604,
+        "fileSize": 33629,
         "status": 1,
         "language": "uk",
         "authors": [
@@ -403,28 +426,29 @@
         "name": "UakinoProvider"
     },
     {
-        "iconUrl": "https://www.google.com/s2/favicons?domain=uaserials.pro&sz=%size%",
-        "fileHash": "sha256-f0669256b8438c4fbcbb39c9c17cac8df641c9ec835bfc780f26403c9a52fb6e",
+        "iconUrl": "https://www.google.com/s2/favicons?domain=uaserials.com&sz=%size%",
+        "fileHash": "sha256-b43ad37f81f935f84f270306ab5284d0de77ef53c8f21dace8ccd1d70c93056b",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 32615,
+        "fileSize": 34540,
         "status": 1,
         "language": "uk",
         "authors": [
-            "CakesTwix"
+            "CakesTwix",
+            "lxnhere"
         ],
-        "version": 26,
+        "version": 27,
         "internalName": "UASerialsProProvider",
-        "description": "UASerials.pro \u2014 \u0442\u0432\u043e\u0457 \u0443\u043b\u044e\u0431\u043b\u0435\u043d\u0456 \u0441\u0435\u0440\u0456\u0430\u043b\u0438 \u0443\u043a\u0440\u0430\u0457\u043d\u0441\u044c\u043a\u043e\u044e \u043c\u043e\u0432\u043e\u044e \u043e\u043d\u043b\u0430\u0439\u043d.",
+        "description": "UASerials.com \u2014 \u0441\u0435\u0440\u0456\u0430\u043b\u0438 \u0442\u0430 \u0444\u0456\u043b\u044c\u043c\u0438 \u0443\u043a\u0440\u0430\u0457\u043d\u0441\u044c\u043a\u043e\u044e (\u0437\u0435\u0440\u043a\u0430\u043b\u0430 .org/.cc/.tv).",
         "url": "https://raw.githubusercontent.com/lxnhere/cloudstream-ruua-extensions/builds/UASerialsProProvider.cs3",
         "name": "UASerialsProProvider"
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=ufdub.com&sz=%size%",
-        "fileHash": "sha256-eaea46416fdd3d8556c0621060bd4a3e54dce4b72ee3d04c1013b1eb62a7fe6e",
+        "fileHash": "sha256-72d05c9f9f0f194ea603c751d620a6f659bbe0e03386ea050157d7f696dc4969",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 12967,
+        "fileSize": 12977,
         "status": 1,
         "language": "uk",
         "authors": [
@@ -443,10 +467,10 @@
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=unimay.media&sz=%size%",
-        "fileHash": "sha256-3bf524dcb5f3a4140e679ce83c525d7c6e3a052d80e90b465c4965cd3241695b",
+        "fileHash": "sha256-8bd3678a3710e0ea1296acbc938203c7200fe79eee692bf72a13fd69cdbc33bf",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/lxnhere/cloudstream-ruua-extensions",
-        "fileSize": 28157,
+        "fileSize": 28497,
         "status": 1,
         "language": "uk",
         "authors": [
